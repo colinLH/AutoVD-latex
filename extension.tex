@@ -1,0 +1,803 @@
+% IEEEtran uses legacy font families; select their encoding before class loading.
+\RequirePackage[T1]{fontenc}
+\documentclass[10pt,journal,compsoc]{IEEEtran}
+
+\ifCLASSOPTIONcompsoc
+  \usepackage[nocompress]{cite}
+\else
+  \usepackage{cite}
+\fi
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{courier}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{float}
+\usepackage{url}
+\usepackage{diagbox}
+\usepackage{makecell}
+\usepackage{multirow}
+\usepackage{colortbl}
+\ifCLASSOPTIONcompsoc
+  \usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\else
+  \usepackage[caption=false,font=footnotesize]{subfig}
+\fi
+\usepackage[noend]{algpseudocode}
+\usepackage{tikz}
+\usepackage[utf8]{inputenc}
+\usepackage{enumerate}
+\usepackage{balance}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cleveref}
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+\crefname{section}{§}{§§}
+\Crefname{section}{§}{§§}
+\setlength{\abovedisplayskip}{3pt}
+\newcommand*\circled[1]{\tikz[baseline=(char.base)]{\node[shape=circle,draw,inner sep=1pt] (char) {#1};}}
+
+\newcommand{\system}{\textsc{AutoVD}}
+
+\begin{document}
+\title{\system{}: State-Conditioned Black-Box Fuzzing of IoT Devices with LLM Agents}
+\author{Anonymous Authors}
+\markboth{Under Submission}{Anonymous Authors: \system}
+
+% 现有的研究通常通过分析固件或利用Zigbee网络进行模糊测试（fuzzing）来挖掘潜在漏洞。但这些研究往往忽略了设备状态和协议状态对固件的影响，或者仅探索了有限的状态空间。此外，他们往往忽略了中间执行过程以及导致“延迟性故障”（delayed failures）的早期操作。因此，他们难以发现这些状态组合触发的漏洞，一些隐藏状态引发的漏洞，以及需要经过复杂多步状态推进、且故障延迟显现的漏洞。
+% 本文提出 \system{}，一种由大语言模型智能体驱动的状态引导式黑盒模糊测试框架，用于发现隐藏状态及状态组合触发的固件漏洞。系统通过两类状态感知模块，基于消息关系探索未知协议状态转换，并细粒度解析设备内部状态属性。在此基础上，智能体融合消息语义感知与关联状态分析，自主规划变异序列、验证前置条件，并依据执行反馈调整测试。条件化记忆保留测试的执行配置与适用条件，支持设备状态变化后的经验复用；进度感知反馈与重放支持的序列贡献评估共同指导两级调度，将延迟故障与相关早期决策关联起来，从而持续、高效地探索组合状态空间。
+% 在针对 14 款 Zigbee 和 Z-Wave 设备的评估中，\system{} 共发现了 37 个漏洞，其中包括 31 个“零日漏洞”（zero-day vulnerabilities），并已获得 7 个 CVE 编号。与 ZVDetector 相比，\system{} 能够在更短的时间内发现更多漏洞。此外，在已验证的消息格式、消息关联关系以及设备属性的覆盖范围上，\system{} 也优于所评估的基准工具。
+
+\IEEEtitleabstractindextext{%
+\begin{abstract}
+  Internet of Things (IoT) devices using low-power wireless protocols are widely deployed, but firmware vulnerabilities can disrupt their operation and compromise physical safety. Existing methods often explore limited protocol and device states, missing vulnerabilities triggered by hidden states or state combinations. Their feedback can also overlook intermediate progress and earlier actions that contribute to delayed failures. 
+  We present \system{}, a state-guided black-box fuzzing framework using large language model (LLM) agents. Two state-awareness modules use message relationships to explore unknown protocol state transitions and identify internal device attributes, including hidden ones. The agents use message semantics and related device attributes to autonomously generate mutated sequences, check preconditions, and revise tests based on execution feedback. Memory retains setup commands and required conditions so that stored sequences can be reused after device state changes. Feedback rewards exploration progress with diminishing credit for repeated visits, while replay helps assess which earlier actions contributed to delayed failures. These signals guide two-level scheduling of state--message pairs and mutations.
+  We evaluate \system{} on 14 Zigbee and Z-Wave devices and discover 37 vulnerabilities, including 31 zero-day vulnerabilities, with 7 CVE IDs assigned. Compared with ZVDetector, \system{} discovers more vulnerabilities in less time. Moreover, it achieves broader coverage of validated message formats, message relationships, and device attributes than the evaluated baselines.
+\end{abstract}
+\begin{IEEEkeywords}
+Vulnerability Detection, Device State, Protocol State, Fuzzing
+\end{IEEEkeywords}}
+
+\maketitle
+\IEEEdisplaynontitleabstractindextext
+\IEEEpeerreviewmaketitle
+
+\IEEEraisesectionheading{\section{Introduction}}
+
+% 
+
+\IEEEPARstart{I}{nternet} of Things (IoT) deployments span home automation, healthcare, and industrial control, with an estimated 21 billion active devices worldwide at the end of 2025~\cite{transformaiot2026}. The enterprise IoT market alone reached US\$324 billion that year~\cite{iotanalyticsenterprise2026}. Firmware vulnerabilities can compromise their normal operation through memory corruption or denial of service~\cite{chen2018iotfuzzer,feng2021snipuzz}. Whether a message triggers a vulnerability can depend on earlier exchanges and the device's current configuration. The same message may execute normally in one state but expose a defect in another, making message sequences and device conditions essential to vulnerability discovery.
+
+To detect firmware vulnerabilities, static methods employ symbolic execution~\cite{davidson2013fie,hernandez2017firmusb} and taint analysis~\cite{cheng2018dtaint}, while dynamic emulation enables testing within reconstructed firmware environments~\cite{kim2020firmae,zheng2019firm}. These approaches depend on firmware access and, for emulation, a suitable model of the execution environment. IoTFuzzer~\cite{chen2018iotfuzzer} and DIANE~\cite{redini2021diane} instead use companion applications to generate test inputs, relying on available apps and their message-construction paths. Snipuzz~\cite{feng2021snipuzz} performs black-box mutation through network messages. Testing through protocol interfaces avoids firmware instrumentation, but requires inferring device behavior and test effectiveness from limited external observations.
+
+Protocol state fuzzing explores message sequences to expose unexpected behavior in implementations of protocols such as TLS, DTLS, and OpenVPN~\cite{de2015protocol,fiterau2020analysis,daniel2018inferring}. Message-format-based fuzzers generate structured inputs for IoT devices~\cite{ren2021z,wang2022don,meng2024large}, and HubFuzzer incorporates device functions and state settings into testing~\cite{ma2023no}. These methods address different parts of the same problem: message sequences and device configurations jointly determine how a test executes. Exploring message order alone can miss the attribute values needed to reach a vulnerable state, while changing those values alone does not identify the sequence that exercises it. This calls for \textbf{protocol state awareness} to identify message dependencies and correlations, and \textbf{device state awareness} to identify internal attributes, including hidden and ReadOnly attributes, and their access methods. Combining the two enables exploration of their \textbf{product space}, where a mutated sequence may trigger a vulnerability only under particular device conditions. 
+
+Recovering these message relationships and attribute-access methods requires interpreting protocol descriptions alongside device observations. LLMs can help automate this analysis and use execution feedback to guide further testing. LLMIF extracts protocol information and reasons about device responses to retain and extend useful sequences~\cite{wang2024llmif}. mGPTFuzz uses specification-guided stateful analysis to generate message sequences for Matter devices~\cite{mgptfuzz}. Our earlier work, ZVDetector~\cite{zvdetector}, analyzes message descriptions with LLMs to uncover correlations through shared attributes, discover hidden device state, and identify commands that modify ReadOnly attributes. Together with active probing and state-guided sequence generation, this analysis enables testing across combinations of protocol states and device conditions.
+
+During sustained exploration, the next useful probe or mutation depends on observations obtained as testing proceeds. LLM agents can use analysis and communication tools to select further probes, check whether a planned setup has succeeded, monitor device responses, and revise subsequent tests. FirmAgent uses runtime information from instrumented firmware fuzzing to guide agents for taint analysis and proof-of-concept generation~\cite{firmagent}. MALF coordinates agents for seed generation, mutation, and feedback analysis, using retrieved protocol knowledge and anomaly severity to adjust testing~\cite{malf}. APIOT combines protocol-level actions and device-status queries for autonomous discovery, exploitation, mitigation, and verification, with runtime guards against stalled or repeated actions~\cite{apiot}.
+ 
+For black-box exploration of combined states, however, anomaly scoring and runtime guards cannot, by themselves, determine when a saved sequence remains applicable, or to which earlier decisions a delayed failure should be attributed. A continuing campaign must also preserve the conditions that make a test useful. In the Groups/Scenes failure reported by ZVDetector~\cite{zvdetector}, an empty group table and correlated commands precede a crash exposed by a later query. Reusing that sequence requires checking whether the required device conditions hold after intervening tests or recovery. Meanwhile, normal intermediate responses may accompany useful state exploration before a fault appears. Feedback must recognize this progress without repeatedly rewarding familiar paths, and a delayed failure must be assessed in the context of earlier actions. These requirements form one problem: how to preserve valid execution conditions and useful evidence across successive autonomous tests.
+
+\textbf{Our Approach.} In this paper, we introduce \system{}, an LLM-agent-based black-box fuzzing framework for IoT devices. Building on ZVDetector's state-awareness techniques, we combine static and dynamic analysis to identify message dependencies and correlations, then use heuristic graph exploration to generate message sequences. A three-stage multi-source analysis collects device attributes from active queries, specifications, development documents, and message descriptions. Attribute permission analysis identifies how to read and modify them, including functional commands that change ReadOnly attributes. The agents use these results to select device conditions relevant to each sequence and apply message semantics-aware mutation. Protocol-specific analysis and communication tools provide access to each target, allowing the testing process to be adapted across IoT protocols.
+
+To sustain this exploration, \system{} binds each mutation sequence to its required device conditions and executable setup. Agents jointly plan the sequence and setup, check supported operations and mutation intent, and verify reached conditions through device observations. Memory preserves compatible target information, setup commands, and applicability conditions for later reuse. Progress feedback decreases with repeated visits, while replay provides evidence for assigning delayed-event credit to earlier decisions. Two-level scheduling uses this feedback to select state--message opportunities and mutations within each context. Planning, reuse, and feedback thus refer to the same test and its execution conditions.  \vspace{0.1cm}
+
+\textbf{Contribution.} We make the following contributions:
+
+\begin{enumerate}[$\bullet$]
+    \setlength{\itemsep}{3pt}
+    \item We introduce a novel system based on LLM agents, called \system{}, which can identify IoT device vulnerabilities triggered by the combination of protocol states and device states, and autonomously explore the combined state space efficiently through tool-supported planning and execution feedback. Our combined state fuzzing methodology can be applied to all IoT protocols.\footnote[1]{\textbf{Open source code at:} \textit{\url{https://github.com/colinLH/IoT-VDA/tree/main}}}
+
+    \item We propose a method for exploring unknown protocol states efficiently and sufficiently. Various message relationships are mined through the combination of static and dynamic analysis and leveraged with a heuristic relationship strategy to identify messages that trigger unknown protocol states in the state graph.
+    
+    \item We develop a technique for fine-grained awareness of device states. Internal device state attributes are obtained through a three-stage multi-source data analysis and combined with an LLM-based analysis method to determine attribute permissions, enabling the fuzzer to explore more device states.
+
+    \item We design a state-conditioned agent fuzzing mechanism for continuous autonomous exploration of the combined state space. It binds mutation sequences to checked device preconditions and preserves their executable setup and applicability conditions in memory. Bounded progress feedback and replay-supported credit for delayed failures guide two-level scheduling, enabling agents to reuse applicable experience and adapt subsequent tests to observed device behavior.
+    
+    \item We evaluate \system{} on 14 Zigbee and Z-Wave devices from eight vendors. Our experiments uncover 37 vulnerabilities, including 31 zero-days, with 7 CVE IDs assigned. Furthermore, agent-generated test cases can expose device vulnerabilities faster and uncover more state-dependent corner cases.\footnote{We release all source code at \url{https://github.com/colinLH/IoT-VDA/tree/main}.} 
+    
+\end{enumerate}
+
+
+\section{Background} \label{Background}
+%-------------------------------------------------------------------------------
+In this section, we first introduce the Zigbee protocol stack and Zigbee devices. Then we describe the motivation, threat model and scope, and the challenges associated with each motivation. Here, we also briefly outline the solutions for each challenge, which align with the components of the system framework described in \textbf{\S\ref{sa}}.
+
+\subsection{Zigbee Stack \& Zigbee Device}
+
+% \begin{figure}[h]
+% 	\centering
+% 	\setlength{\abovecaptionskip}{2pt}
+% 	\setlength{\belowcaptionskip}{0pt}
+% 	\begin{minipage}[t]{1\linewidth}
+% 		\centering
+% 		\vspace{0pt}
+% 		\includegraphics[width=1\textwidth]{Figure/stack.pdf}
+% 	\end{minipage}
+% 	\caption{Zigbee protocol stack, Zigbee network and components of Zigbee devices.}
+% 	\label{fig:stack}
+%         \vspace{-0.1cm}
+% \end{figure}
+
+Zigbee is a low-power, lightweight IoT communication protocol that is widely used in smart homes and medical information collection. The Zigbee protocol stack has five layers from top to bottom, namely Zigbee Cluster Library (ZCL) layer, Application Support Sublayer (APS), Network (NWK) layer, Media Access Control (MAC) layer and Physical layer. The MAC layer and NWK layer are used to identify the Zigbee network and device routing, while the APS layer and ZCL layer contain messages for controlling Zigbee devices. Zigbee Device Profile (ZDP) belongs to APS layer and is used for device discovery and management. 
+
+Coordinators (also called controllers) are considered to be the central nodes responsible for the addresses distribution when devices join, as well as for data packets routing. Each coordinator creates a localized network identified by a 16-bit Personal Area Network Identifier (PAN ID) and a 64-bit Extend PANID (EPID). Each Zigbee device (also called end device) has a 16-bit identified MAC address and a 16-bit network address assigned by the coordinator.
+
+Each Zigbee device has multiple endpoints. An endpoint is a logical entity that provides a service and identified by an 8-bit integer. ZCL \textbf{clusters} are contained within each endpoint and implement some specific functions, where each cluster is represented by a 16-bit identifier called cluster ID (CID). Each cluster provides a set of related \textbf{attributes} and \textbf{commands}, e.g. cluster \emph{'Level Control'} (CID: 0x0008) has an attribute called \emph{'current\_level'}, which indicates the current output level of the device. A command called \textbf{\emph{MoveToLevel}} can set the value of this attribute. Each command can also be called as a \textbf{message} and is identified by a command ID (cid). ZCL clusters can be divided into \textbf{in-clusters} and \textbf{out-clusters}, which define the commands that the endpoint can receive and send respectively.
+
+% \begin{table}[t]
+%     \setlength{\abovecaptionskip}{0pt}
+%     \setlength{\belowcaptionskip}{0pt}
+%     \caption{Comparison of the state-of-the-art (SOTA) vulnerability detection method with ZVDetector, where \includegraphics[scale=0.09]{Figure/white.png} means no support, \includegraphics[scale=0.08]{Figure/mid.png} means partially support, while \includegraphics[scale=0.08]{Figure/black.png} means totally support. [S] and [M] refer to fuzzing of single protocol message and fuzzing of the sequence of multiple messages respectively, [B] and [H] refer to basic attribute collection and hidden attribute collection respectively.}
+%     \begin{center}
+%     \scalebox{0.35}{
+%         \renewcommand{\arraystretch}{1.7}
+%         \begin{tabular}{c|cc|cc|c|}
+% 			\toprule
+%                 \multirow{4}{*}{\diagbox[width=10em,trim=l]{\LARGE \textbf{Method}}{\LARGE \textbf{Support}}} &  \multicolumn{2}{c|}{\huge \textbf{Protocol State Awareness}}& \multicolumn{2}{c|}{\huge \textbf{Device State Awareness}} & \multirow{4}{*}{\shortstack{\huge \textbf{Combination} \\ \huge \textbf{State Fuzzing}}} \\ \cline{2-5}
+% 			~  & \multirow{3}{*}{\shortstack{\LARGE Message Relationship\\ \LARGE Analysis}} & \multirow{3}{*}{\shortstack{\LARGE Protocol State \\ \LARGE Fuzzing}}& \multirow{3}{*}{\shortstack{\LARGE State Attribute \\ \LARGE Collection}} & \multirow{3}{*}{\shortstack{\LARGE State Attribute \\ \LARGE Permission Analysis}}  & ~\\ 
+
+%                 ~ & ~  & ~  & ~  & ~  & ~ \\
+
+%                 ~ & ~  & \LARGE [\textbf{S}] \LARGE [\textbf{M}]  & \LARGE [\textbf{B}] \LARGE [\textbf{H}]  &  ~  &  ~ \\ \hline
+   
+% 			 \multirow{2}{*}{\shortstack{\Large Meng\cite{meng2024large}, DIANE\cite{redini2021diane} \\ \Large Z-Fuzzer\cite{ren2021z}, Wang\cite{wang2022don} }}  & \multirow{2}{*}{\includegraphics[scale=0.09]{Figure/white.png}} & \multirow{2}{*}{\includegraphics[scale=0.08]{Figure/black.png} \;\; \includegraphics[scale=0.09]{Figure/white.png}}  & \multirow{2}{*}{\includegraphics[scale=0.09]{Figure/white.png}\;\; \includegraphics[scale=0.09]{Figure/white.png}}  &  \multirow{2}{*}{\includegraphics[scale=0.09]{Figure/white.png}} &  \multirow{2}{*}{\includegraphics[scale=0.09]{Figure/white.png}} \\ 
+
+%              ~ & ~  & ~  & ~  & ~  & ~ \\
+   
+% 		   \Large HubFuzzer\cite{ma2023no} &  \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.08]{Figure/black.png} \;\; \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.08]{Figure/mid.png} \;\; \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.08]{Figure/mid.png}  & \includegraphics[scale=0.08]{Figure/mid.png}\\
+
+%            \Large PULSAR\cite{gascon2015pulsar}, Chen\cite{chen2019exploring} &  \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.08]{Figure/black.png} \;\; \includegraphics[scale=0.08]{Figure/mid.png} &  \includegraphics[scale=0.09]{Figure/white.png} \;\; \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.09]{Figure/white.png}  & \includegraphics[scale=0.09]{Figure/white.png}\\
+
+%            \Large TLS, DTLS\cite{de2015protocol, fiterau2020analysis, fiterau2023automata} & \includegraphics[scale=0.08]{Figure/mid.png} & \includegraphics[scale=0.08]{Figure/black.png} \;\; \includegraphics[scale=0.08]{Figure/mid.png} &  \includegraphics[scale=0.09]{Figure/white.png} \;\; \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.09]{Figure/white.png}\\
+           
+           
+%             \Large LLMIF\cite{wang2024llmif} & \includegraphics[scale=0.08]{Figure/mid.png} & \includegraphics[scale=0.08]{Figure/black.png} \;\; \includegraphics[scale=0.08]{Figure/mid.png}  &  \includegraphics[scale=0.09]{Figure/white.png} \;\; \includegraphics[scale=0.09]{Figure/white.png} & \includegraphics[scale=0.09]{Figure/white.png}  & \includegraphics[scale=0.09]{Figure/white.png}\\
+                
+     
+%             \Large ZVDetector &  \includegraphics[scale=0.08]{Figure/black.png} & \includegraphics[scale=0.08]{Figure/black.png} \;\; \includegraphics[scale=0.08]{Figure/black.png} &  \includegraphics[scale=0.08]{Figure/black.png} \;\; \includegraphics[scale=0.08]{Figure/black.png} & \includegraphics[scale=0.08]{Figure/black.png} & \includegraphics[scale=0.08]{Figure/black.png}\\
+            
+% 	\bottomrule
+% 	\end{tabular}
+%         }
+%     \end{center}
+%     \label{table:1}
+%     \vspace{-0.5cm}
+% \end{table}
+
+\subsection{Motivation} \label{motivation}
+
+\textbf{Table \ref{table:1}} shows the comparison between ZVDetector and existing methods. Protocol state awareness, device state awareness and combined state fuzzing correspond to our first three motivations. The fourth motivation concerns sustaining autonomous exploration of the combined state space across successive tests. \\ \vspace{-0.2cm}
+
+\noindent $\bullet$ \textbf{Motivation 1}: As shown in \textbf{Figure \ref{fig:cve}-CVE1}, a device receiving a specific message or a message sequence may cause an unexpected protocol state transition and trigger a firmware vulnerability. Most studies \cite{ren2021z, redini2021diane, wang2022don, ma2023no, meng2024large} focus on fuzzing individual protocol messages, ignoring the impact of multiple message combinations on protocol states and the relationship between messages. One type of protocol state fuzzing research \cite{gascon2015pulsar,chen2019exploring} tests all possible message combinations. However, due to the large number of Zigbee messages, the combination space explodes. Another type of protocol state fuzzing research \cite{de2015protocol, fiterau2020analysis, fiterau2023automata} learns protocol state models by analyzing RFC documents or running the protocol and then uses these models to guide fuzzing. However, these methods can only generate message sequences to break message dependencies and ignore the effect of correlations between messages. LLMIF \cite{wang2024llmif} applies large language model (LLM) to analyze the message description. However, it can only analyze the impact of the read\&write correlation on protocol state transition. They fail to completely capture various relationships between messages, especially the correlations that exist in different scenarios. Therefore, these methods either fail to explore the protocol state efficiently or explore only a \textbf{\underline{limited protocol state space}}, restricting the types of message sequences (seen as \textit{actions}) that can be used to trigger vulnerabilities.\\ \vspace{-0.2cm}
+
+\begin{figure}[t]
+	\centering
+	\setlength{\abovecaptionskip}{2pt}
+	\setlength{\belowcaptionskip}{0pt}
+	\begin{minipage}[t]{1.0\linewidth}
+		\centering
+		\vspace{0pt}
+		\includegraphics[width=1\textwidth]{Figure/CVE.pdf}
+	\end{minipage}
+	\caption{Two CVE vulnerabilities related to protocol state and device state, and an example of internal device state affecting function execution.}
+	\label{fig:cve}
+        \vspace{-0.6cm}
+\end{figure}
+
+
+\noindent $\bullet$ \textbf{Motivation 2}: Device state can be seen as the value of all the attributes inside the device at a certain moment. It has a significant impact on the operation of Zigbee stack implementation and affects the correct execution of its functions, as shown in the right part of \textbf{Figure \ref{fig:cve}}. But most studies \cite{ren2021z, meng2024large, wang2024llmif, redini2021diane, wang2022don, chen2019exploring, de2015protocol, fiterau2020analysis} ignore this point. HubFuzzer only collects the state attributes of in-clusters defined in the Home Automation (HA) scenario by statically analyzing specification and explores only attributes with write permissions. However, it fails to acquire manufacturer-specific attributes and numerous hidden attributes that are not defined in clusters, while also ignores the exploration of many attributes with other permissions. Therefore, these methods overlook the discovery of device state attributes or only explore a \textbf{\underline{limited device state space}}, missing many \textit{preconditions} that could trigger device vulnerabilities.\\ \vspace{-0.2cm}
+
+\noindent $\bullet$ \textbf{Motivation 3}: A specific message or message sequence under certain device states (\textit{preconditions + actions}) can cause the device to crash, as shown in \textbf{Figure \ref{fig:cve}-CVE2}. So Zigbee protocol states and device states are not independent of each other. Therefore, exploring the \textbf{\underline{product space}} of protocol states and device states is necessary to discover device vulnerabilities, \textbf{which has been ignored in most previous studies}. Although HubFuzzer performs state combination black-box fuzzing, it only considers corner case settings of the device state and mutates single protocol messages, thus exploring only the tip of the iceberg of the state combination space. Furthermore, it overlooks the correlation between these two states and thus fails to efficiently explore the combined state space.
+
+\noindent $\bullet$ \textbf{Motivation 4: Continuous autonomous exploration of combined states.}\label{motivation4}
+Exploring a broad combined state space is only part of a continuing fuzzing campaign: an agent must also establish the conditions under which a mutation matters, recover them when reusing a test, and learn from outcomes that become visible later. The combined-state vulnerability in \textbf{Figure \ref{fig:cve}-CVE2} illustrates this need. An empty group table and correlated Groups/Scenes messages sharing a group identifier precede the crash exposed by a later query. A saved payload loses this setup, while a complete byte sequence does not establish whether its preconditions still hold after intervening tests or a restart. Thus, useful experience must preserve both the sequence and the conditions that make it applicable.
+
+These conditions also determine how execution feedback should guide the next test. Normal intermediate responses may accompany useful state exploration before a fault becomes observable. Giving all such responses zero feedback hides this progress, whereas a constant positive reward makes repeated traffic indefinitely valuable. When a later query reveals a crash, rewarding only that query overlooks earlier preparation and mutation choices. Therefore, autonomous exploration needs a \textbf{\underline{state-conditioned testing loop}} that jointly plans device setup and message sequences, verifies their execution conditions, retains applicable experience, and uses bounded progress and evidence-supported sequence feedback to revise subsequent decisions.
+
+\subsection{Threat Model and Scope}
+
+\textbf{Threat Model.} Our goal is to help administrators and manufacturers identify vulnerabilities in Zigbee devices, thereby enhancing the security of firmware and protocol stack implementations. The discovered vulnerabilities may be exploited by attackers to disrupt the correct execution of functions, even leading to denial of service and bricking the device. Our threat model includes the developer scope and the attack model, with the fuzzer impersonating the coordinator to communicate with the end device.
+
+% \begin{figure}[h]
+% 	\centering
+% 	\setlength{\abovecaptionskip}{0pt}
+% 	\setlength{\belowcaptionskip}{0pt}
+% 	\begin{minipage}[t]{0.7\linewidth}
+% 		\centering
+% 		\vspace{0pt}
+% 		\includegraphics[width=1\textwidth]{Figure/threatmodel.pdf}
+% 	\end{minipage}
+% 	\caption{Two perspectives covered in our threat model.}
+% 	\label{fig:threat}
+%         \vspace{-0.4cm}
+% \end{figure}
+
+\textbf{(1) Developer Scope:} The user manually initiates the commissioning (pairing) process according to the device specifications, typically by holding down a specific button on the device for a period of time and establishing a connection with the coordinator. During the communication phase, the coordinator can use the network key obtained during the pairing phase to decrypt messages for collecting device information and sends mutated messages to the end device to perform fuzzing. \vspace{0.1cm}
+
+\textbf{(2) Attack Model:} The attacker’s device must be within the Zigbee network of the target device since Zigbee devices have limited communication ranges, while remote attacks require the device to be connected to a cloud platform \cite{liu2024riotfuzzer}. Besides, the end device must be in communication with another coordinator, as attackers generally cannot physically access the end device to initiate the pairing process. The attacker can sniff the original communication traffic to obtain the MAC address of the original coordinator, the MAC address of the target device and the PANID. The EPID is included in the beacon response after sending a beacon request to the original coordinator. Thus, the attackers can disguise themselves as the original coordinator and perform fuzzing attack to the end device. Moreover, the attackers do not need to decrypt Zigbee packets, as they can assume that the device supports all clusters and state attributes, and try to send various messages for the attack.\vspace{0.1cm}
+
+\textbf{Scope.} Our method is applicable to the vast majority of Zigbee devices, as most manufacturers have joined the Zigbee Alliance and follow the protocol specifications to make their devices. More importantly, our approach \textbf{does not require any firmware source code} of the target device for testing or attack, but only a coordinator compatible with the radio type of the end device. Our method requires access to development documentation. Without the open-source documentation, the system can still execute properly by just skipping it. We focus on two vulnerability triggering scenarios in device, including improper sanitization of invalid messages and inadequate validation of legitimate states when receiving messages.
+
+\begin{figure*}[t]
+	\centering
+	\setlength{\abovecaptionskip}{2pt}
+	\setlength{\belowcaptionskip}{0pt}
+	\begin{minipage}[t]{0.85\linewidth}
+		\centering
+		\vspace{0pt}
+		\includegraphics[width=1\textwidth]{Figure/arch.pdf}
+	\end{minipage}
+	\caption{The system architecture of ZVDetector.}
+	\label{fig:arch}
+        \vspace{-0.3cm}
+\end{figure*}
+
+\subsection{Challenges and Solutions}
+
+\textbf{(CH-1) Sufficient protocol state space exploration.} To discover more vulnerabilities, it is necessary to explore a broader range of message sequences that could trigger unknown protocol state transitions. Existing black-box fuzzing methods \cite{gascon2015pulsar, chen2019exploring} attempt to address this by testing all possible message permutations. However, the sheer number of Zigbee messages (assume $n$) leads to the message arrangements explosion ($\sum_{k=1}^{n}\frac{n!}{(n-k)!}\approx O(n!)$ ). \vspace{0.1cm}
+
+Message relationship-based exploration can significantly reduce time overhead. However, Zigbee messages exhibit complex relationship types and interaction scenarios, and incomplete relationship discovery will reduce state space coverage. Existing protocol state learning methods \cite{daniel2018inferring, de2015protocol, fiterau2020analysis} identify message dependencies by analyzing RFC documents or actively running the protocol. However, two messages may affect the common device properties to form a \underline{correlation relationship}. These approaches cannot find this hidden relationship, as they are neither defined in documentation nor directly observable in runtime traffic. Furthermore, static analysis often fail to capture many such correlations, since many common-effect attributes are hard to determine. Finally, these relationships also manifest in multi-device interaction scenarios, where static analysis struggles to verify their validity. \vspace{0.1cm}
+
+\noindent \checkmark \; \textbf{Solution 1}: We find that LLM can more comprehensively find the device attributes affected by each message, while active probing can collect message dependencies and verify the message correlation. Therefore, we propose a technique that combines static and dynamic analysis to more thoroughly identify message relationships \textbf{(\S\ref{4-2})}. Moreover, we design a heuristic relationship-based state graph exploration method that can efficiently explore unknown protocol state transitions \textbf{(\S\ref{4-3})}. \\ \vspace{-0.2cm}
+
+\noindent \textbf{(CH-2) High device state attributes coverage.} First, it is essential to fully understand the state attributes contained in the device. The device internally includes a large number of basic state attributes defined in clusters. However, some of these attributes are set with query isolation, and many others are customized attributes defined by manufacturers when adding unique functions to the device. These two types of attributes cannot be discovered through active cluster queries. Additionally, the device contains numerous hidden state attributes that are not defined in clusters. These attributes cannot be discovered through active cluster queries or by sending Read/WriteAttributes messages.\vspace{0.1cm}
+
+Secondly, it is necessary to thoroughly explore the device state space. However, many attributes have complex data types, such as variable-length array, making it difficult to modify and read attribute values. Even worse, most manufacturers set many attributes to \textbf{ReadOnly} access for security considerations, disabling \textbf{\textit{WriteAttributes}} commands, which significantly increases the difficulty of changing attribute values. Existing specification-based static analysis methods \cite{ma2023no} can only partially obtain basic state attributes and parse common attribute data types, and it fails to understand how the ReadOnly attributes can be modified.\vspace{0.1cm}
+
+\noindent \checkmark \; \textbf{Solution 2}: Due to the complexity of the state attributes, we find it difficult to analyze them completely by just one method. Therefore, we propose a three-stage multi-source data mining approach that combines active querying, specification and manufacturer development document analysis to completely discover basic state attributes and parse their data types, and a LLM-based message format analysis technique to discover hidden state attributes \textbf{(\S\ref{5-1})}. We find that many ReadOnly attributes can be modified by certain messages when analyzing the impact caused by messages. Based on this insight, we use LLM to infer the message-writable attributes\textbf{(\S\ref{5-2})}. \\ \vspace{-0.2cm}
+
+\noindent \textbf{(CH-3) Efficient combined state space fuzzing.} While exploring the combined state space using the idea of black-box fuzzing \cite{ma2023no} can achieve complete coverage, the time overhead for traversal is huge, and many invalid cases exist. Therefore, it is imperative to design a fuzzing algorithm to efficiently explore the combination space and generate test cases that can quickly reach firmware vulnerabilities.\vspace{0.1cm}
+
+\noindent \checkmark \; \textbf{Solution 3}: To reduce the invalid test cases, we design two message semantic-aware mutation strategies: format-aware mutation and type-aware mutation. To efficiently explore the state combination space, we develop two optimization schemes in the fuzzing algorithm. The first is to analyze the correlation between the two states, focusing on the device state attributes that are closely related to the message sequence under test. The second is a crash feedback-based adjustment mechanism. The algorithm focuses on other test cases near the combined state that caused the crash (\textbf{\S\ref{6-1}}).
+
+
+\noindent \textbf{(CH-4) Maintaining applicable experience and informative feedback during autonomous exploration.}\label{challenge4}
+An agent must connect semantic plans, reusable experience, and delayed outcomes to the same executable stateful test, despite partial observations and a bounded context budget. A relationship inferred from documentation does not prove that the required state is reachable on the target, and a historical observation does not establish the current state. Retaining only recent exchanges can discard essential setup and shared identifiers, while retaining the full campaign exceeds the context budget. Feedback must distinguish useful intermediate progress from repeated traffic and associate delayed failures with supported earlier choices without duplicating event credit or counting one trial repeatedly. The challenge is to preserve the execution conditions and evidence needed to make successive autonomous decisions meaningful, while retaining deliberately malformed inputs.\vspace{0.1cm}
+
+\noindent \checkmark \; \textbf{Solution 4}: We organize planning, memory, and feedback around a \emph{state-conditioned test} that binds an ordered message sequence and mutation intent to a compatible target, required device conditions, and executable setup. The Mutator Agent uses the protocol- and device-state analysis tools to plan these components jointly. A Result Checker verifies supported setup and declared mutation intent, while the Monitor checks reached conditions through runtime observations. Hierarchical memory separates current observations from reusable experiments; retrieval recovers compatible sequences and their prerequisites, which require fresh verification before reuse. The Evaluator supplies bounded, visit-decayed progress before an event and uses replay evidence to redistribute one confirmed-event credit budget among supported earlier decisions. These updates revise the utilities of the original trials without increasing their counts. Two-level upper confidence bound (UCB) scheduling then selects state--message opportunities and mutations within each selected context. Together, these components form one feedback loop for continuous autonomous exploration; replay supports attribution without establishing firmware-level causality.
+
+\section{System Architecture} \label{sa}
+
+\textbf{Figure \ref{fig:arch}} shows the three key modules of ZVDetector. \vspace{0cm}
+\begin{enumerate}[$\bullet$]
+    \setlength{\itemsep}{3pt}
+    \setlength{\topsep}{1pt}
+    \item \textbf{Protocol state awareness module (\S\ref{4}).} First, we analyze the clusters supported by the device endpoints using an active probing method. Then, we develop an LLM-based message description analysis method to acquire multi-layer message formats and filter out unsupported messages \textbf{(\S\ref{4-1})}. To address \textbf{CH-1}, we design a method that combines static and dynamic analysis to discover various message dependencies and correlations \textbf{(\S\ref{4-2})}. Moreover, we propose a heuristic relationship-based graph exploration method that efficiently identifies more message sequences leading to unknown protocol state transitions \textbf{(\S\ref{4-3})}.
+    
+    \item \textbf{Device state awareness module (\S\ref{5}).} We design a three-stage attribute collection method that combines dynamic active querying, static document analysis, and an LLM-based message analysis approach to collect both basic and hidden state attributes \textbf{(\S\ref{5-1})}, addressing the issue of incomplete state attribute collection in \textbf{CH-2}. Besides, we develop a LLM-based attribute permission analysis technique \textbf{(\S\ref{5-2})}. With the complex data types parsing during attribute collection, we achieve finer-grained understanding of state attributes. This enables us to determine the read and write methods for each state attribute, tackling the challenge of insufficient device state space exploration in \textbf{CH-2}.
+
+    \item \textbf{State-guided fuzzer (\S\ref{6}).} Since the combined state space is large, an efficient fuzzing approach is needed to address the challenges in \textbf{CH-3}. We design a state-guided fuzzing algorithm to generate test cases \textbf{(\S\ref{6-1})}. The state-guided part of the test case generator uses the fuzzing graph that contains the protocol states to generate the message sequence for testing and analyzes the device state associated with each message sequence. The mutation and testing part uses the format-aware mutation strategies to send correlated device state setup messages and mutated protocol messages to the device and adjusts the test cases based on the device crash or anomaly state fed back by the device watchdog \textbf{(\S\ref{6-2})}.
+
+\end{enumerate}
+
+\section{Protocol State Awareness} \label{4}
+In this section, we first obtain message descriptions for different protocol layers. Then, we utilize active probing and LLM-assisted static message analysis to discover message relationships. Finally, we explore unknown protocol state transitions within the constructed state graph based on these message relationships.
+
+\subsection{Multi-Layer Message Analysis} \label{4-1}
+With the pretrained LLM, we generate the complete format for each message based on their descriptions extracted from documentation. These formats not only help in analyzing message relationships \textbf{(\S\ref{4-2})} and device state attributes writability \textbf{(\S\ref{5-2})}, but also guide the fuzzer in performing precise message mutations \textbf{(\S\ref{6-1})}.
+
+\subsubsection{Device Endpoint Analysis} \label{4-1-1}
+ZCL messages and attributes are defined under the clusters of each endpoint. Therefore, it is necessary to first determine which endpoints the device supports and which clusters they contain. We send an \textbf{\textit{ActiveEndpointRequest}} message to the device to collect all supported endpoint IDs and then send a \textbf{\emph{SimpleDescriptorRequest}} message for each endpoint to gather the supported clusters. The \textbf{\emph{SimpleDescriptorResponse}} message contains two types of clusters supported by the device: input clusters (in-clusters) and output clusters (out-clusters). Some clusters are presented as 'Unknown' since they are manufacturer-specific rather than common-used defined in the specification. 
+
+\begin{figure}[h]
+        \vspace{-0.2cm}
+	\centering
+	\setlength{\abovecaptionskip}{2pt}
+	\setlength{\belowcaptionskip}{0pt}
+	\begin{minipage}[t]{1\linewidth}
+		\centering
+		\vspace{0pt}
+		\includegraphics[width=1\textwidth]{Figure/prompt.pdf}
+	\end{minipage}
+	\caption{The LLM prompt for multi-layer message generation and the methods for concatenating message formats.}
+	\label{fig:prompt}
+        \vspace{-0.2cm}
+\end{figure}
+
+\subsubsection{Message Format Description Extraction.} \label{4-1-2}
+We first analyze the ZCL-layer message format, as it can be obtained from the Zigpy \cite{zigbeelibrary} library directly. Zigpy strictly implements the Zigbee Alliance specification. Most devices follow this specification when implementing the protocol stack in their firmware. The in-clusters and out-clusters messages are defined in two separate inner classes \textit{ServerCommandDef} and \textit{ClientCommandDef}, containing the message name, message ID, and a schema that specifies the payload format. Similarly, the ZCL general command can be acquired from \textit{GeneralCommand} class and the header format can be retrieved from the \textit{ZCLHeader} class. The extracted part of the Zigpy library code is described in \textbf{Appendix \ref{AppendixA}}. We denote the format of ZCL command $C_i$ as $F_{C_i}^{ZCL}$. 
+
+The message format descriptions for other layers are all defined in the protocol specifications: the MAC layer is specified in the IEEE 802.15.4 standard \cite{mac}, while the APS, NWK layer and ZDP are defined in the Zigbee Alliance specification \cite{zigbeespecification}. The specifications include various message frame types, and we extract the structural descriptions of each frame type from the chapter \textit{"Format of Individual Frame Types"}. Specifically, \textit{ACK} frames do not contain a payload. The payload of lower-layer \textit{Data} frames contains higher-layer messages, so we only extract its header part. We separately extract the payload descriptions of \textit{Command} frames, including command/cluster ID, name and illustrations of all fields, as they are defined in other sub-chapters, such as \textit{"Command Frames"}. We also extract each ZCL message description from the ZCL Guide \cite{zcluserguide} based on cid and CID for the attribute permission analysis (\textbf{\S\ref{5-2}}).
+
+
+\subsubsection{LLM-based Message Format Generation.} 
+Based on the message descriptions, we design a LLM prompt to generate the format for each part of a message, as shown in \textbf{Figure \ref{fig:prompt}}. For \textit{Data} and \textit{ACK} message frames, the prompt directly generates their header formats. For \textit{Command} frames, the prompt generates the payload format for each command $Ci$. Finally, we combine all parts to construct the complete message format and filter out unsupported messages by actively sending them and checking the response.
+
+\subsection{Message Relationship Analysis} \label{4-2}
+
+Apart from effecting device attributes during execution, one message may also be related with another. Specifically, we categorize the message relationship into two types: \textbf{dependency} and \textbf{correlation}. Dependencies exist between multiple messages in a strict order, while correlations exist between multiple messages that have a common effect on a device. Next, we describe our combined static and dynamic analysis approach to address the insufficient message relationship discovery mentioned in \textbf{CH-1}.
+
+\subsubsection{Message Dependency Collection.}  We dynamically send each message at fixed intervals and analyze the traffic. One type of dependency forms a \textbf{causal relationship}, where triggering one message leads to the occurrence of another. If the traffic within the interval contains a response/APS ACK message, we consider them to be causally related. Another type of dependency involves \textbf{ordering constraints}, where messages must be executed in a strict sequence (handshake phase). We set the interval at 1 second since most request-response interactions complete within 0.1 seconds and there are hardly more than 10 interactions included in a sequence. Moreover, with the help of \textbf{\S\ref{5-2}}, we distinguish finer-grained protocol states by identifying the attributes modified by messages and reading the values of these attributes through certain messages.
+
+\begin{figure}[t]
+        \vspace{-0.2cm}
+	\centering
+	\setlength{\abovecaptionskip}{2pt}
+	\setlength{\belowcaptionskip}{0pt}
+	\begin{minipage}[t]{1\linewidth}
+		\centering
+		\vspace{0pt}
+		\includegraphics[width=1\textwidth]{Figure/correlation.pdf}
+	\end{minipage}
+	\caption{An example of hidden correlation and cross-device correlation. Hidden correlations are acquired using LLM prompts described on the right side.}
+	\label{fig:correlation}
+        \vspace{-0.6cm}
+\end{figure}
+
+\subsubsection{Message Correlation Discovery.}  Correlation exists between two messages that act on the same attribute. We find such correlations through three strategies. \textbf{(1)} Common fields in their payloads. \textbf{(2)} Field containment relationships, which can be determined by their data types. For example, the message \textbf{\emph{GetMembership}} has field \emph{'groups'} with the data type \emph{'List[Group]'}. Another command \textbf{\emph{AddGroup}} has field \emph{'group\_id'} with data type \emph{'Group'}. We can ensure that \emph{'groups'} contains \emph{'group\_id'}. These two types form the \underline{basic correlations}. \textbf{(3)} \textbf{Hidden Correlations:} Two messages may act on the same attributes, but not be reflected in their format. \textbf{Figure \ref{fig:correlation}} shows two messages that belong to this correlation type. We construct LLM prompts to determine whether a message will form a correlation with other messages by analyzing message formats. If the correlated attributes are not in the list of attributes collected in \textbf{\S\ref{5-1}}, we will add them as hidden attributes.
+
+Besides, correlations may exist in multi-device interaction scenarios. An end device may receive messages from another device while simultaneously communicating with the coordinator. The following conditions must be met: one device $D_A$ has an out-cluster, and the same cluster type exists in the in-clusters of another device $D_B$. However, as discussed in \textbf{CH-1}, static analysis is hard to verify their authenticity, since many low-power and vendor-specific devices may disable control from third-party devices or only support reporting their own status. So we design a dynamic verification method. By sending two ZDP messages \textit{\textbf{BindRequest}} and \textit{\textbf{DisplayBindTable}}, we determine whether the in-cluster of $D_B$ can be bound by the $D_A$. Then, we send out-cluster requests from $D_A$ to $D_B$ and check the response is generated, such as APS ACK. 
+
+\subsection{Protocol State Space Exploration} \label{4-3}
+Unknown protocol states transition may be triggered by certain messages. However, blindly searching the message combination is unacceptable, as discussed in \textbf{CH-1}. Therefore, we next describe how to efficiently explore unknown protocol states by using message relationships, which have been sufficiently mined before.
+
+\subsubsection{State Graph Construction.} Similar to existing protocol state fuzzing methods, we construct the basic state transitions based on message dependencies. However, we differentiate between the pairing phase and the communication phase by setting distinct initial state nodes. Once the pairing phase is complete, the initial node of the communication phase will be reached, where we consider the message \textit{\textbf{DeviceAnnouncement}} as the result of pairing. Furthermore, after a message sequence with dependencies has been executed, the protocol state returns to the initial communication state node, since its execution result does not affect other messages.
+
+\subsubsection{Potential State Transition Discovery.} First, we design the following three exploration strategies for different relationships, which can fully explore the unknown state transitions guided by message sequences that form each relationship type.
+
+\textbf{(a) Break Dependency Skipping}: We test whether it is possible to skip certain messages within a dependent message group, thereby disrupting the original strict order. As shown in \textbf{Figure \ref{fig:fgraph}}, we attempt to skip message $M_1$ by directly sending message $M_2$ (\textcolor{red}{red edge}) to see if we can reach state $S_{c2}$ directly. This prevents the device from receiving critical information on certain messages exchanged in the normal process and leads to a unexpected state.
+
+\textbf{(b) Correlation Effect Insertion}: We attempt to insert other messages correlated with one of the messages in a dependent sequence, such as inserting messages $M_5$ and $M_6$ (\textcolor{blue}{blue edge}) after the execution of message $M_3$, as shown in \textbf{Figure \ref{fig:fgraph}}. Our insight is that correlated messages may alter the execution result of the original sequence and influence the device to process subsequent messages.
+
+\textbf{(c) Out-cluster Aware Insertion}: Control messages from other devices may also alter the execution result of a device's message sequence. Based on the cross-device correlation found previously, we insert out-cluster messages from other devices before and after the correlated in-cluster messages, such as inserting out-cluster message $M_7$ ({\color{ForestGreen}{green edge}}) from device B before and after in-cluster message $M_1$ from device A in \textbf{Figure \ref{fig:fgraph}}.
+
+Secondly, a \textbf{basic strategy} is designed to explore all single edges of the state graph, as they may trigger potential state transitions when combined with mutation strategies. We refer to the state graph updated by these strategies as the fuzzing graph $G_{fuzz}$.
+
+\begin{figure}[t]
+	\centering
+	\setlength{\abovecaptionskip}{2pt}
+	\setlength{\belowcaptionskip}{2pt}
+	\begin{minipage}[t]{1\linewidth}
+		\centering
+		\vspace{0pt}
+		\includegraphics[width=1\textwidth]{Figure/fgraph.pdf}
+	\end{minipage}
+	\caption{Three strategies are used to discover potential protocol state transitions on the basic protocol state graph.}
+	\label{fig:fgraph}
+        \vspace{-0.4cm}
+\end{figure}
+
+\section{Device State Awareness} \label{5}
+Device state can be seen as the combination of all state attribute values. In this section, we propose a multi-source data mining approach to collect various device state attributes and combine it with LLM to analyze the writability of these attributes. This enables a fine-grained perception of device states and addresses \textbf{CH-2}.
+
+\subsection{State Attribute Collection} \label{5-1}
+Specifically, the state attributes supported by the device can be classified into three categories: (1) Explicitly defined in the cluster and can be directly queried. (2) Explicitly defined in the cluster but set with query isolation. (3) Not explicitly defined in the cluster. The first two kinds form the basic device state space $D_{basic}^{state}$, while the third type constitutes the hidden state space $D_{hidden}^{state}$. To fully cover each attribute type, we design the following three-stage approach. \vspace{-0.1cm}
+
+\subsubsection{Stage1: Active Query.} We query the attributes supported by each cluster, along with their data types and access permissions, by sending \textbf{\emph{DiscoverAttributes}} and \textbf{\emph{DiscoverAttributesExtended}} messages. However, for security reasons, many devices refuse to respond to these two messages or only return a subset of attributes. 
+
+\subsubsection{Stage2: Static Analysis.} The second type of state attributes can be further divided into common-used attributes and manufacturer-specific (MS) attributes. The former can be analyzed through the specification library, while the latter can be acquired from the manufacturer’s publicly released development documentation. \label{5-1-2} \vspace{0.1cm}
+
+\noindent \textbf{Specification Library Analysis.} Similar to \textbf{\S\ref{4-1-2}}, we extract attribute IDs, data types, and access permissions from the inner class \textit{AttributeDefs} under each cluster class defined in the Zigpy. The permissions include Readable (R), Writable (W), and Reportable (P). Besides, we recursively parse the datatype class of each attribute to obtain the structure and fields of complex data types. Finally, we send \textbf{\textit{Read/WriteAttributes}} or \textbf{\textit{ConfigureReporting}} messages to filter the unsupported attributes according to their permissions.\vspace{0.1cm}
+
+\noindent \textbf{Development Documentation Analysis.} Many MS attributes are hard to discover, read, and modify since manufacturers not only set query restrictions but also introduce unique semantics, making them have complex data structures. For example, the attribute \textit{'Biorhythm'} defined in the Tuya Bulb has a variable-length structure \textit{'Array'}, where one byte’s low-high bits represent the day of the week. We find that MS commands can modify MS attributes. Therefore, we first ensure the mapping relationships via the link symbols and bind each attribute to its corresponding command. Then we extract each field structure in the command format tables, which contains different meanings, and combine them as the attribute data type. The extraction details are described in \textbf{Appendix \ref{AppendixB}}.
+
+\begin{figure}[t]
+	\centering
+	\setlength{\abovecaptionskip}{2pt}
+	\setlength{\belowcaptionskip}{2pt}
+	\begin{minipage}[t]{1\linewidth}
+		\centering
+		\vspace{0pt}
+		\includegraphics[width=1\textwidth]{Figure/hidden-prompt.pdf}
+	\end{minipage}
+	\caption{Two LLM prompts used to discover hidden state attributes and analyze the attribute permissions.}
+	\label{fig:hidden}
+        \vspace{-0.4cm}
+\end{figure}
+
+\subsubsection{Stage3: Hidden State Discovery.} For the third attribute type, we only consider hidden state attributes that can be accessed through commands, as others cannot be modified or read. For example, a hidden attribute is \textit{'group list'}, which can be known by the message \textit{\textbf{GetMembership}} and can be modified by the message \textit{\textbf{AddGroup}} etc,. Typically, these attributes are reflected by the functionality of messages. As shown in \textbf{Figure \ref{fig:hidden}(a)}, we design this LLM prompt to analyze the message descriptions, as LLM has a better understanding of text semantics. We get a list of possible hidden attributes and remove those that are duplicated with the basic attributes $D_{basic}^{state}$.
+
+\subsection{Attribute Permission Analysis} \label{5-2}
+The device state attributes $D_{all}^{state}$ can be represented as the union of $D_{basic}^{state}$ and $D_{hidden}^{state}$. However, many state attributes can only be queried but cannot be modified, mutating these attributes only results in unnecessary time overhead. Besides, many attributes are set with \textbf{ReadOnly} permission. However, We find these attributes simply disable the message \textbf{\textit{WriteAttributes}}, but can still be modified by other messages. Therefore, we analyze the attributes that each message can \underline{modify} using the LLM prompt shown in \textbf{Figure \ref{fig:hidden}(b)} and filter out all non-writable attributes from $D_{all}^{state}$. Additionally, we analyze the attributes that each message can \underline{read} and \underline{report} since the device state needs to be acquired during fuzzing, while a few attributes cannot be read via \textbf{\textit{ReadAttributes}} directly. Moreover, subsequent fuzzing needs to determine the attributes correlated with each message, and this correlation can be seen as all attributes that a message can either query or modify.
+
+\section{State-Guided Fuzzer} \label{6}
+
+In this section, we describe how to generate test cases of combined states to explore vulnerabilities in device firmware. To discover that vulnerabilities are triggered, we design device watchdogs to monitor the occurrence of crashes and abnormal state events.
+
+\begin{algorithm}[t]
+        \caption{Fuzzing Algorithm(State-Guided Part).}\label{alg:1}
+        % \setstretch{1.35}
+        \SetKwInOut{Input}{procedure}
+        \Input{$M_{s}$, $D_{M_{s}}^{state}$ $\leftarrow$ SG($D_{all}^{state}$, $G_{fuzz}$)}
+        $M_{s} \gets [] $, $D_{M_{s}}^{state} \gets \phi$ \\
+        $M_{s} \gets Select\_Path(G_{fuzz}, S_{basic})$ \\
+        \If{$not \; M_{s}$}{
+            $M_{s} \gets Select\_Path(G_{fuzz}, S_{a})$ \\
+        }
+        \If{$not \; M_{s}$}{
+            $M_{s} \gets Select\_Path(G_{fuzz}, S_{init}^{comm}, S_{?})$ \\
+        }
+        \For{$M_{i} \; in \; M_{s}$}{
+            $D_{M_i}^{state} \gets Corr\_State(M_{i}, D_{all}^{state})$ \\
+            $D_{M_{s}}^{state} \gets D_{M_{s}}^{state} \bigcup D_{M_i}^{state}$
+        }
+        \Return $M_{s}$, $D_{M_{s}}^{state}$ \Comment{$len(M_{s})\geq 1$}
+        
+\vspace{0cm}
+\end{algorithm}
+
+\subsection{Test Case Generator}  \label{6-1}
+
+To efficiently explore the product space of device states and protocol states, thereby solving the \textbf{CH-3}, we design a grey-box fuzzing algorithm to generate test cases. Specifically, the algorithm can be divided into the \underline{state-guided part} and the \underline{mutation part}. 
+
+
+\subsubsection{State-guided part} 
+In this part, the perceived state information will be used to generate seeds that guide subsequent mutations. The detailed pseudo-code is shown in \textbf{Algorithm 1}. First, a message sequence $M_{s}$ will be determined to be fuzzed based on the fuzzing graph $G_{fuzz}$ obtained from the protocol awareness module. The algorithm prioritizes the basic strategy to explore all single message edges in the protocol graph \textbf{(line 2)}. Then, it firstly tracks skipping dependency paths updated by strategy \textbf{(a)} \textbf{(line 4)}. The messages contained in each edge of the selected path are combined to form the \underline{message sequence $M_{s}$}. After that, the algorithm explores paths from the initial communication state node $S_{init}^{comm}$ to the potential state nodes $S_{?}$ \textbf{(line 6)}, which include protocol state transition paths updated by strategies \textbf{(b)} and \textbf{(c)}. 
+
+\textbf{Correlated Device State Analysis.} While the combination of traversing state attributes provides a complete exploration of the device state space, most device states are not related to specific messages and only increase the exploration cost during fuzzing and the time cost to set these unrelated states. To address this, we use the results of LLM prompt analysis in \textbf{\S\ref{5-2}} to obtain the device state attributes $D_{M_i}^{state}$ correlated with each message $M_i$ in the message sequence $M_s$ \textbf{(line 8)}. Finally, they are combined into a complete \underline{device state $D_{M_{s}}^{state}$} associated with the message sequence $M_s$ \textbf{(line 9)}, which will be mutated and set to the device later. 
+
+\begin{algorithm}[t]
+        \caption{Fuzzing Algorithm(Mutation \& Testing Part).}\label{alg:2}
+        % \setstretch{1.35}
+        \SetKwInOut{Input}{procedure}
+        \Input{$L_{interest}$ $\leftarrow$ Fuzz($M_{s}$, $D_{M_{s}}^{state}, G_{fuzz}$)}
+        $ M_{s}^{fuzz} \gets Mutate(M_{s})$, $ D_{M_{s}}^{fuzz} \gets Mutate(D_{M_{s}}^{state})$\\
+        \For{$D_{M_{i}}^{fuzz} \; in \; D_{M_{s}}^{fuzz}$}{
+            $Set\_Device\_State(D_{M_{i}}^{fuzz})$ \\
+            \For{$M_{i}^{fuzz} \; in \; M_{s}^{fuzz}$}{
+                 $F_{crash}, F_{abnormal}^{state} \gets Send(M_{i}^{fuzz})$ \\
+                 $M_{s}^{fuzz}.remove(M_{i}^{fuzz})$ \\
+                 \If{$F_{crash} \; or \; F_{abnormal}^{state}$}{
+                    $L_{interest}.append(D_{M_{i}}^{fuzz}, M_{i}^{fuzz})$ \\
+                    $M_{new}^{fuzz} \gets Similar(G_{fuzz}, M_{i}^{fuzz})$ \\
+                    $M_{s}^{fuzz} = [M_{new}^{fuzz},M_{s}^{fuzz}], \; \ GoTo \; line\;3$ \\
+                 }
+            }
+            
+        }
+        
+        \Return $L_{interest}$
+\end{algorithm}
+\vspace{-0.5em}
+
+\subsubsection{Mutation \& Testing part} 
+In this part, we mutate the seeds obtained from the previous part and conduct fuzz testing on the device. Additionally, we adjust the test cases based on feedback results, allowing the algorithm to focus on areas near device vulnerabilities. The pseudo-code is shown in \textbf{Algorithm 2}. Specifically, we first design two semantic-aware mutation strategies:
+
+\textbf{(1) Type-aware mutation}. (a) Border values and extreme values for integers or floating-point numbers: We generate hexadecimal values equal to or exceeding the maximum and minimum values based on the number of bytes occupied by their data types, as well as perform sign flipping. (b) Empty or excessively long strings: Empty strings can trigger null pointer references, while overly long strings can cause buffer overflows. (c) Empty arrays: Some manufacturer-specific attributes with an \emph{'Array'} structure may trigger null pointer references when their values are empty. (d) Type changes: We change array and integer types to strings, unsigned integer to signed integer, and convert strings into character arrays. 
+
+\textbf{(2) Format-aware mutation}: (a) Truncated messages: Truncate all bytes in the APS layer or ZCL layer of the message. A complete MAC and NWK layer may cause the coordinator or device to continuously process meaningless messages. (b) Add/ remove fields or increase the number of arguments in the ZCL layer. (c) Provide unsupported arguments: these unsupported arguments include cluster IDs, attribute IDs, and command IDs in the APS and ZCL layer.
+
+Before the fuzzing starts, a snapshot of the device state is first obtained. For readable and reportable device state attributes, the values are read directly. For other writable attributes, they are set to their initial values. We keep a snapshot of the initial device state $D_{0}$, and a snapshot of the current device state $D_{now}$. \vspace{0.1cm}
+
+\textbf{Combined State Fuzzing.} The fuzzer first generates a list of mutated message sequence $M_{s}^{fuzz}$ and a list of mutated state dictionaries $D_{M_{s}}^{fuzz}$ based on these strategies  \textbf{(line 1)}. Then it combines a mutated message sequence $M_{i}^{fuzz}$ and a mutated device state dict $D_{M_{i}}^{fuzz}$ from the two lists to generate a test case. \underline{\textbf{Device State Setup}}: The fuzzer sets the mutated state in the device \textbf{(line 3)} by sending the message \textbf{\textit{WriteAttributes}} or other writable commands(analyzed in \textbf{\S\ref{5-2}}) to modify the attributes. Instead of resetting all state attributes, which will waste a lot of time since many state attributes keep the same, we compare the current state snapshot with the new device state(to be set) and only modify those state attributes with different values. After the device state settings are complete, the fuzzer sends the mutated message sequence to the device \textbf{(line 5)}. \vspace{0.1cm}
+
+\textbf{Crash-based Feedback Adjustment.} When a device crashes, the test case that triggered the crash will first be stored, including the message sequence $M_i^{fuzz}$ and a snapshot of the current device state $D_{M_i}^{fuzz}$. Then, the algorithm explores the combined state space near the test case, expanding the test case by searching for similar message sequences $M_{new}^{fuzz}$ \textbf{(line 9)} and add to the front of all test cases \textbf{(line 10)}. The criteria for determining similarity include containment relationships or the presence of two or more identical message types. After that, we first manually \underline{reboot} and repair the device. Then we \underline{reset} the device by continuously pressing the reset button, thus the device can be restored to its initial state ($D_{now} = D_{0}$). If neither rebooting nor resetting restores the device to normal function, we consider it to be bricked. Then the algorithm fixes the device state that triggered the crash and starts a new round of fuzzing \textbf{(line 10 $\rightarrow$ line 3)}. Finally, we obtain all test cases $L_{interest}$ that cause crashes or trigger abnormal states. 
+
+\subsection{Device Watchdog} \label{6-2}
+During normal communication, the device $D$ has the dependency on its interaction with the coordinator $C$, namely, Request ($C \rightarrow D$) - Ack ($D \rightarrow C$) - Response ($D \rightarrow C$) - Ack ($C \rightarrow D$). When a device \underline{\textbf{crash}} occurs, all acknowledgments from the device to the coordinator will not be generated. Therefore, the watchdog only needs to check whether the device sends an Ack after a request. An \underline{\textbf{abnormal state}} of the device occurs when the device is still alive (reply Ack for request) but unable to generate response messages to normal control commands. The watchdog determines this by sending commands \textbf{\emph{'On/Off'}}.
+
+\section{Evaluation}
+
+In this section, we present the experimental results to answer the following three questions corresponding to the \textbf{CH-1} to \textbf{CH-3}:
+
+\textbf{Q1:} Can ZVDetector accurately generate message formats of each layer and discover message relationships more sufficiently?
+
+\textbf{Q2:} Can ZVDetector collect more device state attributes with their permissions and parse complex data types of attributes?
+
+\textbf{Q3:} Can ZVDetector efficiently explore product state space and detect vulnerabilities triggered by combined states?
+
+\subsection{Experimental Setup} \label{7-1}
+
+\begin{table}[h]
+        \vspace{-0.1cm}
+        \setlength{\abovecaptionskip}{0pt}
+	\setlength{\belowcaptionskip}{0pt}
+	\caption{Ten devices deployed in testbed.}
+        \centering
+	\scalebox{0.67}{
+                \renewcommand{\arraystretch}{1.3}
+			\begin{tabular}{|c|c|c|c|c|c|c|c|}
+				\hline	
+				\textbf{ID} & \textbf{Type} & \textbf{Vendor} & \textbf{Device Model} & \textbf{ID} & \textbf{Type} & \textbf{Vendor} & \textbf{Device Model} \\ \hline
+                    1 & Plug & Aqara & lumi.plug & 6 & Bulb & Sengled & E11-N1EAW \\ \hline
+                    2 & Switch & Tuya & SM0004 & 7 & Strip & Sengled & E1G-G8E\\ \hline
+                    3 & Plug & Tuya & TS011F & 8 & Valve & Tuya OMEG & TS0049 \\ \hline
+                    4 & Bulb & Tuya & TS0505B & 9 & Bulb & Third Reality & 3RCB01057Z\\ \hline
+                    5 & Switch & Sengled & E1E-G7F & 10 & Plug & Third Reality & 3RSP02028BZ\\ \hline
+                    
+			\end{tabular}
+	}
+	\label{table:device}
+\vspace{-0.2cm}
+\end{table}
+
+\textbf{Testbed.} We select ten Zigbee devices for testing, including five different types: switch, plug, bulb, strip and valve, covering five well-known manufacturers: Lumi Aqara, Tuya, Sengled, Tuya OMEG and Third Reality, as shown in \textbf{Table \ref{table:device}}. To connect these Zigbee devices, we use two Zigbee gateways as the coordinators: the SONOFF Zigbee 3.0 USB Dongle Plus (DongleP) and the Nortek GoControl QuickStick HUSBZB-1 (HUBZ), which connect to the PC via USB ports. A snapshot of testbed is shown in \textbf{Appendix D}.
+
+\textbf{Implementation Configuration.} ZVDetector runs on Ubuntu 20.04 virtual machine (VM) with a 2.6 GHz six-core Intel Core i7 CPU and 16GB RAM, where the gateway is DongleP. Additionally, we build Home Assistant 2024.4.2 on another Ubuntu 20.04 VM with the same configuration and install the Zigbee Home Automation (ZHA) integration to build another Zigbee network, where the gateway is HUBZ. Additionally, a CC2531 USB Dongle is connected to a Windows 11 machine with an i5 CPU and 16GB RAM, running the TiWsPc \cite{timac} tool to capture Zigbee traffic. We use GPT-4o API for format generation and DeepSeek-V3 API for messages and attributes analysis, since they are two SOTA LLMs in the market. \vspace{0.1cm}
+
+\textbf{Baseline Model.} \textbf{{\color{Orange}{B1}}:} LLMIF \cite{wang2024llmif} has been proven effective in message format generation and relationship discovery \textbf{(Q1)}. We construct the same LLM prompts used in LLMIF. We also integrate LLMIF with our message mutation strategy to perform protocol state fuzzing \textbf{(Q3)}. \textbf{{\color{Orange}{B2}}:} Another protocol state fuzzing method proposed by Fiterau et al. \cite{fiterau2020analysis, fiterau2023automata}, which follows the DTLS-Fuzzer \cite{fiteruau2022dtls} framework. We implement their model learning using LearnLib \cite{learnlib} to collect message dependencies \textbf{(Q1)}, and change the fuzzing method of TLS-Attacker  \cite{tlsattacker} to adapt to Zigbee \textbf{(Q3)}, as its mutation strategy is tailored to the TLS characteristics. \textbf{{\color{Orange}{B3}}:} Beehive \cite{wang2022don} is effective in vulnerability discovery using single protocol message fuzzing \textbf{(Q3)}. We implement its mutation method and perform semantic-aware fuzzing based on our extracted message formats. \textbf{{\color{Orange}{B4}}:} HubFuzzer \cite{ma2023no} is proved to be effective in attribute collection \textbf{(Q2)} and combined state fuzzing \textbf{(Q3)}. We implement a prototype of HubFuzzer since the code is not available in its open-source project.
+
+\subsection{Protocol State Awareness Effectiveness (Q1)} \label{7-3}
+
+\begin{table}[t]
+    \setlength{\abovecaptionskip}{0pt}
+    \setlength{\belowcaptionskip}{2pt}
+    \caption{The comparison of the correctly generated message formats and discovered relationships. [C] represents the non-MS ZCL cluster messages, [M] represents MS ZCL messages and [G] represents the ZCL general messages. [B], [H], [O] represents basic, hidden and cross-device correlations.}
+    \begin{center}
+    \scalebox{0.75}{
+        \renewcommand{\arraystretch}{1.1}
+        \begin{tabular}{|c|c|ccc|}
+			\hline
+			\multicolumn{2}{|c|}{\diagbox [width=15em,trim=l]{Class}{Number}{Method}}& \textbf{{\color{Orange}{B2}}} & \textbf{{\color{Orange}{B1}}} & ZVDetector \\ \hline
+			\multirow{7}{*}{Format} & \multirow{2}{*}{ZCL Command} & \multirow{2}{*}{N/A} & \multirow{2}{*}{220} & \multirow{2}{*}{\shortstack{382 \\ (279[C] 83[M] 20[G])}}\\
+                ~ & ~ & ~ & ~ & ~ \\
+                ~ & ZDP Command & N/A & N/A & 85 \\
+                ~ & APS Command/ ACK & N/A &N/A & 10/1\\
+                ~ & NWK Command & N/A & N/A & 13\\
+                ~ & MAC Command/ ACK & N/A & N/A & 9/1\\ \cline{2-5}
+                ~ & Total & N/A & 220 & 501\\ \hline
+                \multirow{2}{*}{Relationship} & Dependency & 325 & N/A & 366 \\
+                ~ & Correlation & N/A & 417 & 904[B] 2246[H] 612[O] \\ \hline
+                
+		\end{tabular}
+        }
+    \end{center}
+    \label{table:q1}
+    \vspace{-0.4cm}
+\end{table}
+
+\textbf{Message Format Generation Performance.} We actively send the supported messages to device and capture the traffic to extract each message format as the ground truth. As shown in \textbf{Table \textbf{\ref{table:q1}}}, \textbf{{\color{Orange}{B1}}} achieves only 78.85\% accuracy in format generation for 279 ZCL Non-MS cluster-specific messages of 27 clusters, since some message descriptions are coarse-grained and lack enhanced field descriptions, whereas ZVDetector achieves accurate format extraction for all these messages. Besides, we successfully extract the formats of 83 ZCL MS messages and 20 ZCL general messages, and 119 formats from other six message types. \textbf{{\color{Orange}{B1}}} fails to extract the formats from layers other than ZCL due to the heterogeneous description structures. Other details are listed in \textbf{Appendix \ref{AppendixC}}. \vspace{0.1cm}
+
+\textbf{Discovered Message Relationships.} Compared to \textbf{{\color{Orange}{B2}}}, we discover 41 more dependencies. Although LearnLib defines an input symbol set that includes all messages, it fails to distinguish some fine-grained states. For example, the message \textbf{\textit{toggle}} switches the device between on and off states, but the default responses are the same with 'status': 'success'. Our approach reads the state attributes correlated with messages, and thus successfully constructs two separate state transition branches instead of one. 
+
+Besides, we identify and validate a total of 3,150 correlations, including 904 basic correlations and 2,246 hidden correlations with no ACK\& Data frame messages, among which 612 also fit the cross-device correlation scenario. We first construct a list of non-correlated format fields, including various identifiers and generic addresses, to filter out 23,906 invalid basic correlations and 2,719 invalid hidden correlations. Then we check all hidden correlations that are duplicated with the basic correlations. We find 25 duplicate hidden correlations, but 21 of those find new correlated attributes. Finally, we validate all correlated attributes by determining whether the correlated messages can read, write, or report these attributes and find the remaining 8.1\% of LLM results to be invalid. \textbf{\underline{Read}:} The message is executed and we check whether the response traffic includes the attribute and its value. \textbf{\underline{Write}:} The message is executed, and another message capable of reading the attribute (acquired in \textbf{\S\ref{5-2}}) is used to verify whether the value has changed. Few attributes are non-readable by messages. We directly assume that the message can modify the attributes. \textbf{\underline{Report}:} We check whether the message directly contains the attribute value while the coordinator can receive it. The validation method for the results of \textbf{\S\ref{5-2}} is described in \textbf{\S\ref{7-3}}. Compared to \textbf{{\color{Orange}{B1}}}, we are able to detect a wider range of correlations beyond just read\&write operations, including write\&report operations and read\&report operations. \vspace{0.1cm}
+
+\textbf{LLM Time Cost.} GPT-4o completes the format generation for 119 non-ZCL messages within 22.81 minutes. For correlation analysis, overly long message lists can lead to attention dilution, while short message list will increases API calls with high time cost. Therefore, we divide the messages at each layer into groups of 20 (batch size=20). DeepSeek-V3 completes 6976 batch rounds in 17.2 hours and analyze 136,082 message pairs. Despite the high time costs, these are one-time efforts and the results can be directly reused.
+
+\subsection{Device State Attribute Coverage (Q2)} \label{7-3}
+
+\textbf{Endpoint Information Coverage.} We compare the discovered clusters, attributes, and commands with \textbf{{\color{Orange}{B4}}}, as shown in \textbf{Table \ref{table:coverage}}, where we achieve better coverage across all 10 devices. We successfully collect 11 MS clusters and 18 out clusters, while \textbf{{\color{Orange}{B4}}} only identifies Non-MS clusters in setting-up messages and ignores all out-clusters within endpoints. Besides, we discover 44 MS attributes and 16 MS attributes are defined under non-MS clusters. We discover and verify 116 hidden attributes by applying the same method as for validating hidden correlations, and 21.05\% of results generated by LLM are invalid. Finally, we evaluate the attribute permission analysis performed by the LLM in \textbf{\S\ref{5-2}}. We first adopt the above \textbf{Read} and \textbf{Report} verification methods to determine the correctness of message-readable and message-reportable permissions. Based on the valid readable attributes, we use the above \textbf{Write} method to verify all message-writable permissions. The results include 64 message-readable, 67 message-reportable and 295 message-writable attributes, and 15.98\% of results generated by LLM are invalid. 
+
+\begin{table}[t]
+    \setlength{\abovecaptionskip}{0pt}
+    \setlength{\belowcaptionskip}{0pt}
+    \caption{Device endpoint information coverage results.}
+    \begin{center}
+    \scalebox{0.65}{
+        \renewcommand{\arraystretch}{1.3}
+        \begin{tabular}{|c|ccc|ccc|}
+			\hline
+			\multirow{2}{*}{\textbf{ID}} & \multicolumn{3}{c|}{\Large ZVDetector} & \multicolumn{3}{c|}{\Large HubFuzzer} \\ \cline{2-7} 
+			~ & \large Cluster & \large Attribute & \large Command & \large Cluster & \large Attribute & \large Command \\ \hline 
+
+                % Done
+                \large 1 & \large 16(100\%) & \large 237(100\%) & \large 60(100\%) & \large 11(68.75\%) & \large 166(70.04\%) & \large 40(66.67\%) \\ \hline
+
+                % Done
+                \large 2 & \large 8(100\%) & \large 73(100\%) & \large 64(100\%) & \large 5(62.50\%) & \large 44(60.27\%) & \large 40(62.50\%)\\ \hline
+
+                % Done
+                \large 3 & \large 13(100\%) & \large 357(100\%) & \large 102(100\%) & \large 9(69.23\%) & \large 320(89.64\%) & \large 74(72.55\%)\\ \hline  
+
+                 % Done
+                \large 4 & \large 10(100\%) & \large 166(100\%) & \large 129(100\%) & \large 8(80.00\%) & \large 114(68.67\%) & \large 86(66.67\%) \\ \hline
+
+                % Done
+                \large 5 & \large 10(100\%) & \large 72(100\%) & \large 57(100\%) & \large 5(50.00\%) & \large 42(58.33\%) & \large 26(45.61\%)\\ \hline
+
+                % Done
+                \large 6 & \large 9(100\%) & \large 117(100\%) & \large 58(100\%) & \large 8(88.89\%) & \large 99(84.62\%) & \large 48(82.76\%)\\ \hline
+
+                % Done
+                \large 7 & \large 9(100\%) & \large 117(100\%) & \large 58(100\%) & \large 8(88.89\%) & \large 99(84.62\%) & \large 48(82.76\%)\\ \hline
+
+                % Done
+                \large 8 & \large 10(100\%) & \large 79(100\%) & \large 58(100\%) & \large 5(50.00\%) & \large 44(55.70\%) & \large 40(68.97\%) \\ \hline
+
+                % Done
+                \large 9 & \large 8(100\%) & \large 137(100\%) & \large 79(100\%) & \large 7(87.50\%) & \large 114(83.21\%) & \large 68(86.08\%) \\ \hline
+
+                % Done
+                \large 10 & \large 10(100\%) & \large 339(100\%) & \large 85(100\%) & \large 8(80.00\%) & \large 308(90.86\%) & \large 74(87.06\%) \\ \hline
+		\end{tabular}
+        }
+    \end{center}
+    \label{table:coverage}
+    \vspace{-0.4cm}
+\end{table}
+
+To support more devices for future research, we also analyze all 279 messages across 27 commonly used ZCL clusters with a larger $D_{basic}^{state}$ containing 590 attributes and other non-MS and non-ACK 137 messages. We discover 375 hidden state attributes $D_{hidden}^{state}$ and 14,878 attribute permissions. These attributes significantly expand the device state space. Additional results need to be validated on devices that support related messages and attributes. \vspace{0.1cm}
+
+\textbf{LLM Time Cost.} DeepSeek-V3 analyzes one message per round, taking 9.4 minutes and 35.1 minutes for hidden state attribute analysis on two scales. For attribute permission analysis, we similarly split the state attribute set into groups of 20 to make the LLM more focused. It takes 6.19 hours on the endpoint support scale and 27.77 hours on the larger scale.
+
+% 我们花费了
+\begin{figure}[h]
+        \vspace{-0.2cm}
+	\centering
+	\setlength{\abovecaptionskip}{0pt}
+	\setlength{\belowcaptionskip}{0pt}
+	\begin{minipage}[t]{1\linewidth}
+		\centering
+		\vspace{0pt}
+		\includegraphics[width=1\textwidth]{Figure/complex.pdf}
+	\end{minipage}
+	\caption{Comparison of successfully parsed attributes and commands containing complex data types with \textbf{{\color{Orange}{B4}}}.}
+	\label{fig:complex}
+        \vspace{-0.1cm}
+\end{figure}
+
+\textbf{Complex Data Type Parsed Results.} Many attributes and message fields have complex data types, which makes it difficult for the fuzzer to send commands, and for the watchdog to parse them. \textbf{Result verification method:} We construct messages containing the attributes based on the collected data types. By sending these messages, we check whether a normal response is received and analyze the structure of the response to determine if each field matches the expected format. As shown in \textbf{Figure \ref{fig:complex}}, \textbf{{\color{Orange}{B4}}} successfully parses 25 attributes and commands with complex data types, while ZVDetector successfully parses 107 objects, which contains 120 command fields and attributes with 6 complex data types. \textbf{{\color{Orange}{B4}}} fails to parse all complex data types on MS objects and some complex data types on Non-MS objects including 'StructClass' and 'LVList'. 
+
+\begin{table}[h]
+        \setlength{\abovecaptionskip}{0pt}
+	\setlength{\belowcaptionskip}{3pt}
+	\caption{Information about the vulnerabilities discovered on the testbed. \includegraphics[scale=0.4]{Figure/circleD.pdf} and \includegraphics[scale=0.4]{Figure/circleC.pdf} represents dependency and correlation group respectively. [\textcolor{red}{F}] and [\textcolor{red}{T}] represents the format-aware and the type-aware mutation strategy respectively.}
+        \centering
+	\scalebox{0.345}{
+                \renewcommand{\arraystretch}{2}
+			\begin{tabular}{|c|c|c|c|c|c|}
+				\hline	
+                    \textbf{\huge Device}  &  \multirow{2}{*}{\textbf{\huge Exploit Messages}} & \multirow{2}{*}{\textbf{\huge Mutation Method}} & \textbf{\huge Observ} & \multirow{2}{*}{\textbf{\huge CVE}} & \multirow{2}{*}{\textbf{\huge Count}} \\
+
+                    \textbf{\huge ID} & ~ & ~ & \textbf{\huge ations} & ~ & ~ \\ \hline
+
+                    \huge \multirow{2}{*}{1}  &  \huge \textbf{[Out-cluster]}: \emph{BindRequest} & \huge \multirow{2}{*}{[\textcolor{red}{F}] \; BindRequest: No ZDP frame} & \huge Device & \huge Conf- & \multirow{2}{*}{\huge 1}\\ 
+
+                    ~ & \huge \emph{BindRegisterResponse} \includegraphics[scale=0.59]{Figure/circleC.pdf} & ~ & \huge Crashed & \huge irmed & ~ \\ \hline
+                    
+                    \huge \multirow{2}{*}{2} & \emph{\huge DiscoverCommand-} & \huge \multirow{2}{*}{[\textcolor{red}{F}] No \emph{'discovery\_complete'} field}  & \huge Device &  \huge Under & \huge \multirow{2}{*}{\huge 1}\\
+
+                    ~ & \huge \emph{GeneratedResponse} & ~  & \huge Crashed &  \huge Review &  ~ \\ \hline
+                    
+                    \huge \multirow{5}{*}{3} & \multirow{3}{*}{\huge \emph{OnWithTimedOff}} & \huge [\textcolor{red}{T}] \emph{'on\_off\_control'}: Invalid Value & \multirow{3}{*}{\shortstack{\huge Device\\ \huge Crashed}} &  \multirow{3}{*}{\shortstack{\huge \textbf{New}\\ \huge \textbf{CVE}}} & \multirow{3}{*}{\huge 2} \\
+                    
+                    ~  & ~ & \huge \emph{'on\_time', 'off\_time'}: Negative & ~  & ~ & ~ \\
+
+                    ~  & ~ & \huge integer overflow & ~  & ~ & ~ \\ \cline{2-6}
+                    
+                    ~  & \huge \textbf{[MS-cluster]}: & \huge [\textcolor{red}{T}] Array field(\textit{'inching\_duration'}): & \huge Abnormal & \huge Under & \multirow{2}{*}{\huge 3} \\
+
+                    ~ & \huge \textit{InchingSwitch} & \huge Invalid \& Negative Value & \huge State & \huge Review & ~ \\ \hline
+                    
+                    \huge \multirow{8}{*}{4} & \huge \emph{WriteAttributes,} & \huge [\textcolor{red}{T}] \emph{'device\_enabled'}: Negative & \huge Abnormal & \huge \textbf{New} & \multirow{2}{*}{\huge 4} \\
+
+                    ~ & \huge \emph{WriteAttributesResponse} \includegraphics[scale=0.59]{Figure/circleD.pdf}& \huge integer overflow & \huge State & \huge \textbf{CVE} & ~ \\ \cline{2-6}
+                    
+                    ~  & \huge \emph{AddIfIdentifying}, \emph{AddGroup}, & \huge [\textcolor{red}{T}] \textbf{Device State}: [group\_count: 0] & \multirow{3}{*}{\shortstack{\huge Device \\ \huge Crashed}} & \multirow{3}{*}{\shortstack{\huge \textbf{New}\\ \huge \textbf{CVE}}} & \multirow{3}{*}{\huge 2}  \\ 
+                    
+                    ~  & \huge \emph{EnhancedAddScene,} & \huge \textbf{(Hidden State)} & ~  & ~ & ~ \\
+
+                    ~  & \huge \emph{GetSceneMembership} \includegraphics[scale=0.59]{Figure/circleC.pdf} & \huge AddGroup: \emph{'group\_name'}: String overflow & ~  & ~ & ~ \\ \cline{2-6}
+                    
+                    ~  & \huge \emph{AddGroup,} & \multirow{2}{*}{\huge [\textcolor{red}{T}] \emph{'group\_name'}: String overflow} &  \huge Device & \huge Under &  \multirow{2}{*}{\huge 2} \\
+
+                    ~  & \huge \emph{GetGroupMembership} \includegraphics[scale=0.59]{Figure/circleC.pdf} & ~ & \huge Crashed & \huge Review & ~ \\ \cline{1-6}
+
+
+                    \multirow{2}{*}{\huge 5} & \multirow{2}{*}{\huge \emph{SetShortPollInterval}} & \huge [\textcolor{red}{T}] \emph{'New\_short\_poll\_interval'}:  & \huge Device & \huge Old & \multirow{2}{*}{\huge 2} \\ 
+
+                    ~ & ~ & \huge 0x0000/Negative integer  & \huge Crashed & \huge CVE & ~ \\ \hline
+                    
+                    \huge \multirow{9}{*}{6} &  \huge \multirow{3}{*}{\emph{StepLevel}, \emph{MoveLevel} \includegraphics[scale=0.59]{Figure/circleC.pdf}} & \huge \textbf{Device State}: [Current Level: 0xfe] & \multirow{3}{*}{\shortstack{\huge Device \\ \huge Crashed}}  & \multirow{3}{*}{\shortstack{\huge \textbf{New}\\ \huge \textbf{CVE}}} & \multirow{3}{*}{\huge 1} \\
+                    
+                    ~   & ~ & \huge StepLevel: \emph{'step\_mode'}: 0x01 \emph{'step\_size'}: 0xff & ~ & ~ & ~ \\
+                    
+                    ~   & ~ & \huge MoveLevel: \emph{'move\_mode'}:0x00 \emph{'move\_rate'}: 0x00 & ~ & ~ & ~  \\ \cline{2-6}
+                    
+                    ~  & \huge  \multirow{3}{*}{\emph{StepLevel}, \emph{MoveLevel} \includegraphics[scale=0.59]{Figure/circleC.pdf}} & \huge [\textcolor{red}{T}] \textbf{Device State}: [Current Level: 0x00] & \multirow{3}{*}{\shortstack{\huge Device \\ \huge Crashed}}  & \multirow{3}{*}{\shortstack{\huge \textbf{New}\\ \huge \textbf{CVE}}} & \multirow{3}{*}{\huge 1} \\ 
+                    
+                    ~  & ~ & \huge StepLevel: \emph{'step\_mode'}: 0x00 \emph{'step\_size'}: 0xff  & ~ & ~  & ~ \\
+
+                    ~  & ~ & \huge MoveLevel: \emph{'move\_mode'}: 0x01 \emph{'move\_rate'}: 0x00  & ~ & ~  & ~ \\ \cline{2-6}
+
+                     ~   & \huge \multirow{3}{*}{\emph{MoveLevel}} & \huge [\textcolor{red}{T}] \textbf{Device State}: [Current Level: 0x00/0xfe] & \multirow{3}{*}{\shortstack{\huge Device \\ \huge Crashed}} & \multirow{3}{*}{\shortstack{\huge Old\\ \huge CVE}} & \multirow{3}{*}{\huge 2} \\ 
+
+                    ~ & ~ & \huge MoveLevel: \emph{'move\_mode'}: 0x00/0x01  & ~  & ~ & ~ \\
+
+                     ~ & ~ & \huge \emph{'move\_rate'}: 0x00  & ~  & ~ & ~ \\ \hline
+                     
+                    \huge \multirow{9}{*}{7} &  \huge \multirow{3}{*}{\emph{On}, \emph{MoveWithOnOff} \includegraphics[scale=0.59]{Figure/circleC.pdf}} & \huge [\textcolor{red}{T}] \textbf{Device State}: [On Level: 0xfe] & \multirow{3}{*}{\shortstack{\huge Device \\ \huge Crashed}} & \multirow{3}{*}{\shortstack{\huge \textbf{New}\\ \huge \textbf{CVE}}} & \multirow{3}{*}{\huge 1} \\
+                    
+                    ~  & ~ & \huge MoveWithOnOff: \emph{'move\_mode'}: 0x01   & ~ & ~ & ~ \\ 
+
+                    ~  & ~ & \huge \emph{'move\_rate'}: 0x00  & ~ & ~ & ~ \\ \cline{2-6}
+                    
+                    ~  & \huge \multirow{3}{*}{\emph{Off}, \emph{MoveWithOnOff} \includegraphics[scale=0.59]{Figure/circleC.pdf}} & \huge [\textcolor{red}{T}] \textbf{Device State}: [On Level: 0x00] & \multirow{3}{*}{\shortstack{\huge Device \\ \huge Crashed}} & \multirow{3}{*}{\shortstack{\huge \textbf{New}\\ \huge \textbf{CVE}}} & \multirow{3}{*}{\huge 1} \\
+                    
+                    ~  & ~ & \huge MoveWithOnOff: \emph{'move\_mode'}: 0x00  & ~ & ~   & ~ \\ 
+
+                    ~  & ~ & \huge \emph{'move\_rate'}: 0x00  & ~ & ~   & ~ \\ \cline{2-6}
+
+                    ~  & \huge \multirow{3}{*}{\emph{MoveWithOnOff}} & \huge [\textcolor{red}{T}] \textbf{Device State}: [On Level: 0x00/0xfe] & \multirow{3}{*}{\shortstack{\huge Device \\ \huge Crashed}}  & \multirow{3}{*}{\shortstack{\huge Old\\ \huge CVE}} & \multirow{3}{*}{\huge 2}  \\
+                    
+                    ~ & ~ & \huge MoveWithOnOff: \emph{'move\_mode'}: 0x00/0x01   & ~  & ~  & ~\\
+
+                    ~ & ~ & \huge \emph{'move\_rate'}: 0x00  & ~  & ~  & ~\\ \hline
+                    
+
+                    
+			\end{tabular}	}
+	\label{table:crash}
+\vspace{-0.5cm}
+
+\end{table}
+
+\subsection{Vulnerability Detection Performance (Q3)} \label{7-4}
+
+\textbf{Found Vulnerabilities.} We conducted fuzzing on a total of 10 devices and found \underline{\textbf{25}} \underline{\textbf{vulnerabilities with 7 CVEs}}, including 19 zero-day vulnerabilities (5 new CVEs assigned) and 6 N-day/Fixed vulnerabilities (2 CVEs), as shown in \textbf{Table \ref{table:crash}}. We perform a study about two cases assigned with new CVEs. Another case is described in \textbf{Appendix \ref{AppendixD}}. Then we perform a ablation study and compare each module of ZVDetector with each baseline (\textbf{{\color{Orange}{B1}}}-\textbf{{\color{Orange}{B4}}}) in terms of the found vulnerabilities. Finally, we evaluate the efficiency of our combined state fuzzing algorithm.
+
+$\bullet$ \textbf{Tuya Smart Bulb (ID=4).} \textbf{(1)} \textbf{[Triggering Method]}: Fuzzer generates a ZCL general message sequence with \underline{\textbf{dependency}} relationship, containing a message \textbf{\textit{WriteAttributes}} with the value of field \textit{'device enabled'} is mutated to a negative value, and a normal message \textbf{\textit{WriteAttributesResponse}}. \textbf{[Observations]}: A denial of service (DoS) is triggered but the device still alive, including the command \textbf{\textit{ResetFactoryDefault}} of the cluster \textit{Basic}. \textbf{(2)} \textbf{[Triggering Method]}: Before sending the message sequence, the message \textbf{\textit{RemoveAll}} should be sent to remove all the groups joined by the device, i.e., the \underline{\textbf{hidden device state}} \textit{'group\_count'} is set to 0. 
+Fuzzer generates a message sequence of four ZCL general messages with \underline{\textbf{correlation}} relationship. The first two messages belong to the cluster \textit{Groups} and the last two messages belong to the cluster \textit{Scenes}. They are associated through the fields \textit{'group id'} and \textit{'scene id'}. The field \textit{'group\_name'} in the message \textbf{\textit{AddGroup}} is mutated to contain an excessively long string. Then the field \textit{'group id'} in \textbf{\textit{AddScene}} and \textbf{\textit{GetSceneMembership}} is aligned with \textbf{\textit{AddGroup}} to create a new \textit{'scene id'} and to get the related information of the scene. \textbf{[Observations]}: The bulb crashes and requires a reboot to recover. Too long string name may corrupt the group table and lead to device buffer overflow. This correlation helps the fuzzer find several messages that write a specific field first and then query the same field.
+
+$\bullet$ \textbf{Sengled Smart Bulb (ID=6).} We discover two vulnerabilities on the device, both triggered by a sequence of two ZCL messages under cluster \textit{LevelControl} with \underline{\textbf{hidden correlation}} relationship: \textbf{\textit{Step}} (0x02) and \textbf{\textit{Move}} (0x01). \textbf{[Triggering Method]}: The \underline{\textbf{device state}} attribute \textbf{\textit{current\_level}} are set to 0xfe and 0x00. The value of two fields \textit{“step\_size”} and \textit{'move\_rate'} in these two messages are mutated to 0xff and 0x00. The difference between the two vulnerability triggering methods is that the former reduces the level by \textbf{\textit{Step}} and then raises the level by \textbf{\textit{Move}}, the latter raises the level by \textbf{\textit{Step}} and then reduces the level by \textbf{\textit{Move}}. \textbf{[Observations]}: Our analysis indicates that the associated device state may affect the messages that change itself, and invalid move step may cause the device to execute the function incessantly, leading to the DoS. \vspace{0.1cm} 
+
+\textbf{Ablation Study.} \textbf{[\underline{Without Device State}]}: We first evaluate basic protocol state fuzzing by applying different mutation strategies to individual protocol messages. Both \textbf{{\color{Orange}{B3}}} and \textbf{{\color{Orange}{B4}}} are able to discover the same two vulnerabilities on ID=2 and ID=5, as shown in \textbf{Table \ref{table:ablation}.} In contrast, we further explore negative values and design an argument serialization method that avoids being sanitized due to OverflowError, and try multiple parameter mutations and MS messages. So we are able to discover six additional vulnerabilities on ID= 2, 3, 5. Next, we evaluate the performance of using only dependency and correlation results for fuzzing. Since the dependency that triggers vulnerabilities on device ID=4 is relatively simple, both our method and \textbf{{\color{Orange}{B3}}} are able to discover the related four cases. Compared to \textbf{{\color{Orange}{B1}}}, our approach also analyzes hidden correlations and cross-device scenarios, enabling the discovery of one vulnerability on device ID=1 triggered by a ZDP correlated message sequence. \textbf{[\underline{Combined State}]}: Both our approach and \textbf{{\color{Orange}{B4}}} identify four vulnerabilities on ID=6 and ID=7 that are triggered by a single mutated message combined with basic state attributes. Most notably, many crashes occur when correlated messages are combined with correlated state attributes, including other four vulnerabilities on ID=6, 7. Finally, by incorporating attribute permissions, we discover the last two vulnerabilities on ID=4, which are triggered by a four-message mutated sequence with a hidden state attribute that could be read and modified by two of these messages.
+
+We analyze that there are \textbf{three reasons} why \textbf{{\color{Orange}{B1}}}-\textbf{{\color{Orange}{B4}}} fails to detect other vulnerabilities: \textbf{(1)} They ignore many message correlations, including hidden correlations and cross-device correlations, which restricts the kinds of messages that can be used to trigger a vulnerability. \textbf{(2)} They fail to collect many MS clusters, attributes and messages, and ignore to discover hidden device states, which neglect many preconditions to trigger vulnerabilities.  \textbf{(3)} They focus only on protocol state fuzzing and ignore the impact of device state on messages sending and receiving. \vspace{0.1cm}
+
+\textbf{Efficiency.} Our fuzzing takes \underline{1.8-21.6 hours} depending on different vulnerabilities. The most time-consuming case is on device ID=4, triggered by a combined state involving four correlated messages. This is because correlation-based unknown protocol state exploration started later and require mutating various lengths of message sequences combined with much more state attribute settings. Besides, the time overhead for setting device states is relatively low, ranging from \underline{29 minutes to 3.7 hours}, since we only update the values of non-overlapping attributes. Finally, two previous state-aware modules may still contain a few false positives introduced by the LLM that not filtered by our validation, which could lead to a slight increase in time cost due to some invalid explorations.
+
+
+\section{Discussion} 
+
+\textbf{Manual Effort.} Most of the modules in this paper are automated, but some parts require manual effort. Obtaining the Zigbee specification that describes messages \textbf{(\S\ref{4-2})} and development documentation for various device models from different manufacturers \textbf{(\S\ref{5-1})} are all one-time manual efforts. For different devices, the prompts are universal, but the parsing of  documentation needs to be adjusted, as the text structure varies between different manufacturers. \\ \vspace{-0.3cm}
+
+\noindent \textbf{Extend to New Protocol.} The methodology of combination state fuzzing can be effectively applied to other IoT protocols since they all involve device states and protocol states. The main challenge lies in how to collect the internal device state attributes, as different IoT protocols have significant differences in the definition, data types, and access methods for internal state attributes, with no unified standard. Fortunately, most IoT devices support active querying \textbf{(\S\ref{5-1}-Stage 1)}, such as BLE exposes its characteristics through the GATT protocol and allows device state retrieval by sending a Read Characteristic request. In addition, most protocols have defined specification libraries \textbf{(\S\ref{5-1}-Stage 2)}, such as the MQTT Paho Client \cite{mqtt1} and Mosquitto \cite{mqtt2}, Android BLE library \cite{bluetooth}, Finally, other modules (\textbf{\S\ref{4}}, \textbf{\S\ref{6}}) can be easily migrated to new protocols by slightly changing the prompts and device setup methods. We will apply our method for vulnerability detection on other IoT protocols in future work and update results on our open-source project.
+
+\begin{table}[t]
+    \setlength{\abovecaptionskip}{0pt}
+    \setlength{\belowcaptionskip}{0pt}
+    \caption{The impact of protocol state(PS) and device state(DS) exploration on discovering vulnerabilities. Our results are labeled with (\textbf{{\color{Cyan}{Z}}}) and baselines are labeled with (\textbf{{\color{Orange}{B1}}})-(\textbf{{\color{Orange}{B4}}}).}
+    \begin{center}
+    \scalebox{0.45}{
+        \renewcommand{\arraystretch}{1.7}
+        \begin{tabular}{|c|c|cc|}
+			\toprule
+                \multirow{4}{*}{\diagbox[width=12em,trim=l]{\LARGE \textbf{DS Method}}{\LARGE \textbf{\;\;\;\;\;\; PS Method}}} &  \multicolumn{3}{c|}{\huge \textbf{Protocol State Awareness}} \\ \cline{2-4}
+			~  & \multirow{3}{*}{\shortstack{\huge Fuzzing of Single \\ \huge Message}} & \multirow{3}{*}{\shortstack{\huge + Single Dependency \\ \huge Based Fuzzing}}&  \multirow{3}{*}{\shortstack{\huge + Single Correlation \\ \huge Based Fuzzing}}  \\ 
+
+                ~ &   & ~  & ~  \\
+
+                ~ & ~  & ~  & ~ \\ \hline
+     
+            \multirow{2}{*}{\huge Without Device State} &   \multirow{2}{*}{\huge $2(\textbf{{\color{Orange}{B3}}})/2(\textbf{{\color{Orange}{B4}}})/8(\textbf{{\color{Cyan}{Z}}})$} & \huge $12(\textbf{{\color{Orange}{B2}}})/12(\textbf{{\color{Cyan}{Z}}})$ & \huge \huge $10(\textbf{{\color{Orange}{B1}}})/11(\textbf{{\color{Cyan}{Z}}})$  \\ \cline{3-4}
+
+            ~ & ~  & \multicolumn{2}{c|}{\huge $15(\textbf{{\color{Cyan}{Z}}})$ (Combined Two Relationships)} \\ \hline
+            
+            \multicolumn{4}{|c|}{\huge \textbf{+ With Device State Awareness (Combined State Fuzzing)}} \\ \hline
+
+            \multirow{2}{*}{\huge Attribute Collection} &  \multirow{2}{*}{\huge $6(\textbf{{\color{Orange}{B4}}})/12(\textbf{{\color{Cyan}{Z}}})$} & \huge $16(\textbf{{\color{Cyan}{Z}}})$ & \huge $19(\textbf{{\color{Cyan}{Z}}})$  \\ \cline{3-4}
+            ~ & ~  & \multicolumn{2}{c|}{\huge $23(\textbf{{\color{Cyan}{Z}}})$ (Combined Two Relationships)} \\ \hline
+            
+            \multirow{2}{*}{\huge + Permission Analysis} &  \multirow{2}{*}{\huge $12(\textbf{{\color{Cyan}{Z}}})$} & \huge $16(\textbf{{\color{Cyan}{Z}}})$ & \huge $21(\textbf{{\color{Cyan}{Z}}})$ \\ \cline{3-4}
+            
+            ~ & ~  & \multicolumn{2}{c|}{\huge $25(\textbf{{\color{Cyan}{Z}}})$ (Combined Two Relationships)} \\
+            
+	\bottomrule
+	\end{tabular}
+        }
+    \end{center}
+    \label{table:ablation}
+    \vspace{-0.5cm}
+\end{table}
+
+\section{Related Work}
+Research on detecting vulnerabilities in IoT devices has been researched widely and can be broadly categorized into two groups: fuzzing the protocol and analyzing the firmware.
+
+\textbf{Protocol fuzzing.} Most studies are aimed at protocol state fuzzing \cite{gascon2015pulsar, de2015protocol, daniel2018inferring, chen2019exploring, song2019spfuzz, fiterau2020analysis, fiteruau2022dtls, fiterau2023automata, natella2022stateafl} including the handshake phase and cipher exchange phase. They try to break the dependencies of protocol messages to discover vulnerabilities. Joeri et.al \cite{de2015protocol} and Fiterau et.al \cite{fiterau2020analysis, fiteruau2022dtls, fiterau2023automata} use protocol state fuzzing to discover vulnerabilities in the implementation of the TLS and DTLS protocols respectively. Other studies \cite{wang2022don, ma2023no, meng2024large, wang2024llmif} collect message formats of APS and ZCL layer and perform format semantic-aware fuzzing.
+ 
+\textbf{Firmware Analysis.} Most device firmware analysis methods employ static analysis techniques \cite{ahmed2020identifying, chen2016towards, nadir2019auditing, sachidananda2020over, davidson2013fie, hernandez2017firmusb, cheng2018dtaint}. A few methods \cite{chen2016towards, kim2020firmae, zheng2019firm, zhou2022your, ren2021z} utilize emulation techniques. Some methods \cite{chen2018iotfuzzer, redini2021diane, feng2021snipuzz} fuzz through the network. Snipuzz \cite{feng2021snipuzz} collects message seeds through manufacturers' test APIs, then mutates these seeds based on device feedback. IoTFuzzer \cite{chen2018iotfuzzer} and DIANE \cite{redini2021diane} analyze the companion applications to send the mutated messages that cover critical data flow paths in the application.
+
+\section{Conclusion}
+Inspired by the combination of certain device state and protocol state that can cause device crashes, this paper designs a fuzzing framework called ZVDetector, which can effectively identify such vulnerabilities in Zigbee devices. We propose two state-aware modules, which enables fine-grained profile of device states by discovering more complete internal state attributes, and accurately depict the protocol state by parsing various protocol message formats and identifying various message relationships. A state-guided fuzzer has been designed to efficiently explore the combined space of device states and protocol states, generating test cases comprising mutated protocol message sequences and device state. Experiments demonstrate that ZVDetector achieves high coverage in extracting device endpoint information, high accuracy and richness in message format extraction and relationship discovery, and excellent performance in vulnerability detection.
+
+
+\section*{Ethic Consideration}
+For all newly discovered vulnerabilities, we have submitted reports to the CVE team. We will publicize these CVE identifiers and firmware version when the vendor releases a patch for these zero-day vulnerabilities, or when they believe that the vulnerability can be publicized without posing the security risk. 
+
+\section*{Acknowledgment}
+
+We thank all the anonymous reviewers for their valuable comments to improve this
+paper. This work is supported by the National Natural Science Foundation of China (No. 62172251).
+
+\bibliographystyle{IEEEtran}
+\balance
+\bibliography{references}
+
+\appendices
+
+\end{document}

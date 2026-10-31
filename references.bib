@@ -1,0 +1,934 @@
+% Merged from latex/references.bib and latex/zvdetector/reference.bib on 2026-10-30.
+% Existing citation keys are preserved; website/paper key collisions are separated below.
+% Same-work aliases retained for compatibility: firmafl/zheng2019firm, firmae/kim2020firmae,
+% iotfuzzer/chen2018iotfuzzer, llmif/wang2024llmif. Unify their uses before final submission.
+% This merge checks syntax and citation-key coverage, not all bibliographic metadata.
+% Uncited survey entries remain working notes requiring verification before use.
+
+@inproceedings{react,
+  author = {Shunyu Yao and Jeffrey Zhao and Dian Yu and Nan Du and Izhak Shafran and Karthik Narasimhan and Yuan Cao},
+  title = {{ReAct}: Synergizing Reasoning and Acting in Language Models},
+  booktitle = {International Conference on Learning Representations},
+  year = {2023},
+  url = {https://arxiv.org/abs/2210.03629}
+}
+
+@inproceedings{fuzzevalsok,
+  author = {Moritz Schloegel and Nils Bars and Nico Schiller and Lukas Bernhard and Tobias Scharnowski and Addison Crump and Arash Ale-Ebrahim and Nicolai Bissantz and Marius Muench and Thorsten Holz},
+  title = {{SoK}: Prudent Evaluation Practices for Fuzzing},
+  booktitle = {IEEE Symposium on Security and Privacy},
+  year = {2024},
+  url = {https://www.mariusmue.com/research/2024-fuzz-eval-sok/fuzz-eval-sok.pdf}
+}
+
+@article{ucb1,
+  author = {Peter Auer and Nicol{\`o} Cesa-Bianchi and Paul Fischer},
+  title = {Finite-time Analysis of the Multiarmed Bandit Problem},
+  journal = {Machine Learning},
+  volume = {47},
+  number = {2--3},
+  pages = {235--256},
+  year = {2002},
+  doi = {10.1023/A:1013689704352}
+}
+
+@inproceedings{zvdetector,
+  author    = {Hai Lin and Chenglong Li and Jiahai Yang and Zhiliang Wang and Jiaqi Bai},
+  title     = {{ZVDetector}: State-Guided Vulnerability Detection System for Zigbee Devices},
+  booktitle = {Proceedings of the 2025 ACM SIGSAC Conference on Computer and Communications Security},
+  year      = {2025},
+  pages     = {2549--2563},
+  publisher = {ACM},
+  doi       = {10.1145/3719027.3765035}
+}
+
+@inproceedings{karonte,
+  title = {{KARONTE}: Detecting Insecure Multi-binary Interactions in Embedded Firmware},
+  year  = {2020},
+  booktitle = {IEEE Symposium on Security and Privacy},
+  author = {Nilo Redini and Aravind Machiry and Ruoyu Wang and Chad Spensky and Andrea Continella and Yan Shoshitaishvili and Christopher Kruegel and Giovanni Vigna},
+  pages = {1544--1561},
+  doi = {10.1109/SP40000.2020.00036},
+  url = {https://seclab.cs.ucsb.edu/publications/redini2020_karonte/}
+}
+
+@inproceedings{satc,
+  title = {Sharing More and Checking Less: Leveraging Common Input Keywords to Detect Bugs in Embedded Systems},
+  year  = {2021},
+  booktitle = {USENIX Security Symposium},
+  author = {Libo Chen and Yanhao Wang and Quanpu Cai and Yunfan Zhan and Hong Hu and Jiaqi Linghu and Qinsheng Hou and Chao Zhang and Haixin Duan and Zhi Xue},
+  pages = {303--319},
+  url = {https://www.usenix.org/conference/usenixsecurity21/presentation/chen-libo}
+}
+
+@misc{emtaint,
+  key   = {EmTaint},
+  title = {Detecting Vulnerabilities in Linux-Based Embedded Firmware with {SSE}-Based On-Demand Alias Analysis},
+  year  = {2023},
+  note  = {International Symposium on Software Testing and Analysis}
+}
+
+@misc{hermescan,
+  key   = {HermeScan},
+  title = {Faster and Better: Detecting Vulnerabilities in Linux-based {IoT} Firmware with Optimized Reaching Definition Analysis},
+  year  = {2024},
+  note  = {Network and Distributed System Security Symposium}
+}
+
+@inproceedings{mango,
+  title = {Operation Mango: Scalable Discovery of Taint-Style Vulnerabilities in Binary Firmware Services},
+  year  = {2024},
+  booktitle = {USENIX Security Symposium},
+  author = {Wil Gibbs and Arvind S Raj and Jayakrishna Menon Vadayath and Hui Jun Tay and Justin Miller and Akshay Ajayan and Zion Leonahenahe Basque and Audrey Dutcher and Fangzhou Dong and Xavier Maso and Giovanni Vigna and Christopher Kruegel and Adam Doup{\'e} and Yan Shoshitaishvili and Ruoyu Wang},
+  pages = {7123--7139},
+  url = {https://www.usenix.org/conference/usenixsecurity24/presentation/gibbs}
+}
+
+@inproceedings{nuwa,
+  title = {From Constraints to Cracks: Constraint Semantic Inconsistencies as Vulnerability Beacons for Embedded Systems},
+  year  = {2025},
+  booktitle = {USENIX Security Symposium},
+  author = {Jiaxu Zhao and Yuekang Li and Yanyan Zou and Yang Xiao and Naijia Jiang and Yeting Li and Nanyu Zhong and Bingwei Peng and Kunpeng Jian and Wei Huo},
+  pages = {685--704},
+  url = {https://www.usenix.org/conference/usenixsecurity25/presentation/zhao}
+}
+
+@inproceedings{firmafl,
+  title = {{FIRM-AFL}: High-Throughput Greybox Fuzzing of {IoT} Firmware via Augmented Process Emulation},
+  year  = {2019},
+  booktitle = {USENIX Security Symposium},
+  author = {Yaowen Zheng and Ali Davanian and Heng Yin and Chengyu Song and Hongsong Zhu and Limin Sun},
+  pages = {1099--1114},
+  url = {https://www.usenix.org/conference/usenixsecurity19/presentation/zheng}
+}
+
+@misc{firmae,
+  key   = {FirmAE},
+  title = {{FirmAE}: Towards Large-Scale Emulation of {IoT} Firmware for Dynamic Analysis},
+  year  = {2020},
+  note  = {Annual Computer Security Applications Conference}
+}
+
+@misc{halucinator,
+  key   = {HALucinator},
+  title = {{HALucinator}: Firmware Re-hosting Through Abstraction Layer Emulation},
+  year  = {2020},
+  note  = {USENIX Security Symposium}
+}
+
+@misc{p2im,
+  key   = {P2IM},
+  title = {{P2IM}: Scalable and Hardware-independent Firmware Testing via Automatic Peripheral Interface Modeling},
+  year  = {2020},
+  note  = {USENIX Security Symposium}
+}
+
+@misc{jetset,
+  key   = {Jetset},
+  title = {Jetset: Targeted Firmware Rehosting for Embedded Systems},
+  year  = {2021},
+  note  = {USENIX Security Symposium}
+}
+
+@inproceedings{fuzzware,
+  title = {Fuzzware: Using Precise {MMIO} Modeling for Effective Firmware Fuzzing},
+  year  = {2022},
+  booktitle = {USENIX Security Symposium},
+  author = {Tobias Scharnowski and Nils Bars and Moritz Schloegel and Eric Gustafson and Marius Muench and Giovanni Vigna and Christopher Kruegel and Thorsten Holz and Ali Abbasi},
+  pages = {1239--1256},
+  url = {https://www.usenix.org/conference/usenixsecurity22/presentation/scharnowski}
+}
+
+@misc{firmwire,
+  key   = {FirmWire},
+  title = {FirmWire: Transparent Dynamic Analysis for Cellular Baseband Firmware},
+  year  = {2022},
+  note  = {Network and Distributed System Security Symposium}
+}
+
+@inproceedings{hoedur,
+  title = {Hoedur: Embedded Firmware Fuzzing using Multi-Stream Inputs},
+  year  = {2023},
+  booktitle = {USENIX Security Symposium},
+  author = {Tobias Scharnowski and Simon W{\"o}rner and Felix Buchmann and Nils Bars and Moritz Schloegel and Thorsten Holz},
+  pages = {2885--2902},
+  url = {https://www.usenix.org/conference/usenixsecurity23/presentation/scharnowski}
+}
+
+@misc{iotfuzzer,
+  key   = {IoTFuzzer},
+  title = {{IoTFuzzer}: Discovering Memory Corruptions in {IoT} Through App-based Fuzzing},
+  year  = {2018},
+  note  = {Network and Distributed System Security Symposium}
+}
+
+@misc{multifuzzfw,
+  key   = {MultiFuzz},
+  title = {MultiFuzz: A Multi-Stream Fuzzer for Testing Monolithic Firmware},
+  year  = {2024},
+  note  = {USENIX Security Symposium}
+}
+
+@misc{ipeafuzz,
+  key   = {IPEA-Fuzz},
+  title = {{IPEA-Fuzz}: Facilitating Non-Intrusive In-Vivo Firmware Testing with Stateless Instrumentation},
+  year  = {2026},
+  note  = {Network and Distributed System Security Symposium}
+}
+
+@inproceedings{llmif,
+  title = {{LLMIF}: Augmented Large Language Model for Fuzzing {IoT} Devices},
+  year  = {2024},
+  booktitle = {IEEE Symposium on Security and Privacy},
+  author = {Jincheng Wang and Le Yu and Xiapu Luo},
+  doi = {10.1109/SP54263.2024.00211},
+  url = {https://www4.comp.polyu.edu.hk/~csxluo/LLMIF.pdf}
+}
+
+@inproceedings{mgptfuzz,
+  title = {From One Thousand Pages of Specification to Unveiling Hidden Bugs: Large Language Model Assisted Fuzzing of Matter {IoT} Devices},
+  year  = {2024},
+  booktitle = {USENIX Security Symposium},
+  author = {Xiaoyue Ma and Lannan Luo and Qiang Zeng},
+  pages = {4783--4800},
+  url = {https://www.usenix.org/conference/usenixsecurity24/presentation/ma-xiaoyue}
+}
+
+@misc{chathttpfuzz,
+  key   = {ChatHTTPFuzz},
+  title = {{ChatHTTPFuzz}: Large Language Model-Assisted {IoT} {HTTP} Fuzzing},
+  year  = {2024},
+  note  = {arXiv preprint}
+}
+
+@misc{slfhunter,
+  key   = {SLFHunter},
+  title = {{SLFHunter}: Command Injection Vulnerability Detection in Embedded Firmware via {LLM}-Enhanced Sensitive Library Function Identification},
+  year  = {2024},
+  note  = {Computers \& Security}
+}
+
+@misc{chatfume,
+  key   = {ChatFuMe},
+  title = {{ChatFuMe}: Large Language Model-Assisted Model-Based Fuzzing for Protocol Implementations},
+  year  = {2025},
+  note  = {arXiv preprint}
+}
+
+@misc{busybox,
+  key   = {BusyBox fuzzing},
+  title = {Fuzzing {BusyBox}: Leveraging {LLM} and Crash Reuse for Embedded Bug Unearthing},
+  year  = {2024},
+  note  = {USENIX Security Symposium}
+}
+
+@inproceedings{iotbec,
+  title = {{IoTBec}: An Accurate and Efficient Recurring Vulnerability Detection Framework for Black Box {IoT} Devices},
+  year  = {2026},
+  booktitle = {Network and Distributed System Security Symposium},
+  author = {Haoran Yang and Jiaming Guo and Shuangning Yang and Guoli Zhao and Qingqi Liu and Chi Zhang and Zhenlu Tan and Lixiao Shan and Qihang Zhou and Mengting Zhou and Jianwei Tai and Xiaoqi Jia},
+  doi = {10.14722/ndss.2026.240634},
+  url = {https://www.ndss-symposium.org/wp-content/uploads/2026-f634-paper.pdf}
+}
+
+@misc{logicfuzz,
+  key   = {LogicFuzz},
+  title = {{LogicFuzz}: {LLM}-Assisted Logic Instruction Fuzzing for Programmable Logic Controllers},
+  year  = {2026},
+  note  = {Network and Distributed System Security Symposium}
+}
+
+@misc{issuereport,
+  key   = {Issue-report mining},
+  title = {Detecting Vulnerabilities from Issue Reports for Internet-of-Things},
+  year  = {2025},
+  note  = {Automated Software Engineering}
+}
+
+@misc{binaryfree,
+  key   = {Binary-free reasoning},
+  title = {Energy-Efficient Multi-{LLM} Reasoning for Binary-Free Zero-Day Detection in {IoT} Firmware},
+  year  = {2025},
+  note  = {arXiv preprint}
+}
+
+@inproceedings{firmagent,
+  title = {{FirmAgent}: Leveraging Fuzzing to Assist {LLM} Agents with {IoT} Firmware Vulnerability Discovery},
+  year  = {2026},
+  booktitle = {Network and Distributed System Security Symposium},
+  author = {Jiangan Ji and Chao Zhang and Shuitao Gan and Lin Jian and Hangtian Liu and Teming Liu and Lei Zheng and Zhipeng Jia},
+  doi = {10.14722/ndss.2026.231943},
+  url = {https://www.ndss-symposium.org/wp-content/uploads/2026-s1943-paper.pdf}
+}
+
+@inproceedings{pangolin,
+  title = {{PANGOLIN}: Fuzzing Multilingual {IoT} Firmware with {LLM}-Driven Code Analysis},
+  year  = {2026},
+  booktitle = {USENIX Security Symposium},
+  author = {Zhipeng Jia and Xiaokang Yin and Shuitao Gan and Chao Zhang and Hangtian Liu and Jiangan Ji and Enzhou Song and Ruijie Cai and Jinglei Tan and Shengli Liu},
+  pages = {673--692},
+  url = {https://www.usenix.org/conference/usenixsecurity26/presentation/jia-zhipeng}
+}
+
+@misc{malf,
+  title = {{MALF}: A Multi-Agent {LLM} Framework for Intelligent Fuzzing of Industrial Control Protocols},
+  year  = {2025},
+  note = {arXiv preprint arXiv:2510.02694},
+  author = {Bowei Ning and Xuejun Zong and Kan He},
+  url = {https://arxiv.org/abs/2510.02694}
+}
+
+@misc{mithras,
+  key   = {MITHRAS},
+  title = {{MITHRAS}: Multi-Agent Deep Reinforcement Learning for Penetration Testing of {IoT} Devices Through Their Mobile Companion App},
+  year  = {2025},
+  note  = {SSRN preprint}
+}
+
+@misc{agentmultifuzz,
+  key   = {Agent-MultiFuzz},
+  title = {MultiFuzz: A Dense Retrieval-based Multi-Agent System for Network Protocol Fuzzing},
+  year  = {2025},
+  note  = {arXiv preprint}
+}
+
+@misc{firmhive,
+  key   = {FIRMHIVE},
+  title = {{LLMs} as Firmware Experts: A Runtime-Grown Tree-of-Agents Framework},
+  year  = {2025},
+  note  = {arXiv preprint}
+}
+
+@misc{liva,
+  key   = {LIVA},
+  title = {{LIVA}: A Multi-Agent {LLM}-Assisted System for {IoT} Vulnerability Analysis},
+  year  = {2026},
+  note  = {IEEE Transactions on Dependable and Secure Computing}
+}
+
+@misc{vexaiot,
+  key   = {VEXAIoT},
+  title = {{VEXAIoT}: Autonomous {IoT} Vulnerability Exploitation using {AI} Agents},
+  year  = {2026},
+  note  = {arXiv preprint}
+}
+
+@misc{apiot,
+  key   = {APIOT},
+  title = {{APIOT}: Autonomous Vulnerability Management Across Bare-Metal Industrial {OT} Networks},
+  year  = {2026},
+  note  = {arXiv preprint}
+}
+
+@misc{farmpilot,
+  key   = {FirmPilot},
+  title = {FirmPilot: Evidence-Guided Multi-Agent Environment Recovery for {IoT} Firmware Rehosting},
+  year  = {2026},
+  note  = {arXiv preprint}
+}
+
+@misc{zigbeezclr6,
+  author = {{ZigBee Alliance}},
+  title = {{ZigBee Cluster Library Specification, Revision 6}},
+  year = {2016},
+  url = {https://csa-iot.org/wp-content/uploads/2019/12/07-5123-06-zigbee-cluster-library-specification.pdf},
+  note = {Document 07-5123-06, released 14 January 2016}
+}
+
+% Z-Wave extension: primary documentation, not AutoVD device measurements.
+@misc{wallmoteengineering,
+  author = {{Aeotec}},
+  title = {{WallMote 7 ZWA022-A}: Engineering Specifications},
+  url = {https://products.z-wavealliance.org/wp-content/uploads/products/60316/Engineering%20Spec%20-%20Aeotec%20WallMote%207_US.pdf},
+  note = {Certification-linked engineering sheet, sections 1.4, 3, 5, and 7. Accessed Oct. 2026}
+}
+
+@misc{zen76cert,
+  author = {{Z-Wave Alliance}},
+  title = {{S2 on/off switch 800 (Zooz ZEN76 800LR)}},
+  url = {https://products.z-wavealliance.org/z-wave-product/s2-onoff-switch-800/},
+  note = {Certification ZC14-23080309, HW 03, FW 03.10. Accessed Oct. 2026}
+}
+
+@misc{zen77cert,
+  author = {{Z-Wave Alliance}},
+  title = {{Dimmer Switch 800 (Zooz ZEN77 800LR)}},
+  url = {https://products.z-wavealliance.org/z-wave-product/dimmer-switch-800/},
+  note = {Certification ZC14-23080310, HW 04, FW 04.10. Accessed Oct. 2026}
+}
+
+@misc{zen76settings,
+  author = {{Zooz}},
+  title = {{ZEN76 S2 On/Off Switch Advanced Settings}},
+  url = {https://www.support.getzooz.com/kb/article/549-zen76-s2-on-off-switch-advanced-settings/},
+  note = {Firmware-dependent parameter catalog. Accessed Oct. 2026}
+}
+
+@misc{zen76changes,
+  author = {{Zooz}},
+  title = {{ZEN76 S2 On/Off Switch Change Log}},
+  url = {https://www.support.getzooz.com/kb/article/1151-zen76-s2-on-off-switch-change-log/},
+  note = {Firmware 3.xx and 4.xx histories. Accessed Oct. 2026}
+}
+
+@misc{zen77settings,
+  author = {{Zooz}},
+  title = {{ZEN77 S2 Dimmer Advanced Settings}},
+  url = {https://www.support.getzooz.com/kb/article/550-zen77-s2-dimmer-advanced-settings/},
+  note = {Firmware-dependent parameter catalog. Accessed Oct. 2026}
+}
+
+@misc{zen77changes,
+  author = {{Zooz}},
+  title = {{ZEN77 S2 Dimmer Change Log}},
+  url = {https://www.support.getzooz.com/kb/article/850-zen77-s2-dimmer-change-log/},
+  note = {Firmware 4.xx and 5.xx histories. Accessed Oct. 2026}
+}
+
+@misc{zwavexml,
+  author = {{Z-Wave Alliance}},
+  title = {{Z-Wave Command-Class XML Schema}},
+  howpublished = {Silicon Labs Z-Wave Protocol Controller repository},
+  url = {https://github.com/SiliconLabsSoftware/z-wave-protocol-controller/blob/ec5adbf11f830050ed615e731edba77eade304ab/scripts/command_class_generator/zwave.xml},
+  note = {Schema 2.18.3, pinned revision ec5adbf. Accessed Oct. 2026}
+}
+
+@misc{zwaveccoverview,
+  author = {Eric Ryherd},
+  title = {Which {Z-Wave} Command Classes to Use for Your {IoT} Device and Why},
+  howpublished = {Z-Wave Alliance, A Z-Wave Developer's Journey, Part 3},
+  url = {https://z-wavealliance.org/z-wave-command-classes-iot-devices/},
+  note = {Command Class categories and support/control roles. Accessed Oct. 2026}
+}
+
+@misc{n4011manual,
+  author = {{NewOne}},
+  title = {{N4011 Z-Wave Smart Plug (800S)} User Manual},
+  url = {https://cdn-files.myshopline.com/file/store/1656494542650/N4011-800s-manual.pdf},
+  note = {Manufacturer manual for the N4011 800S smart plug. Accessed Oct. 2026}
+}
+
+@manual{zwaveapp2024b,
+  author = {{Z-Wave Alliance}},
+  title = {Application Work Group {Z-Wave} Specifications},
+  year = {2024},
+  month = jul,
+  note = {Release 2024B, July 10, 2024}
+}
+
+@misc{zst39manual,
+  author = {{Zooz}},
+  title = {{ZST39 800LR Z-Wave Stick Product Manual}},
+  url = {https://www.support.getzooz.com/kb/article/2367-zst39-800lr-z-wave-stick-product-manual/},
+  note = {Serial API Mode. Accessed Oct. 2026}
+}
+
+@manual{uzbmanual,
+  author = {{Silicon Labs}},
+  title = {{UZB Product Manual}},
+  year = {2018},
+  url = {https://www.silabs.com/documents/public/reference-manuals/INS12713-UZB-Product-Manual.pdf},
+  note = {INS12713-10, ordering information and Section 3.3. Accessed Oct. 2026}
+}
+
+@inproceedings{wang2022don,
+  author    = {Xian Wang and Shuang Hao},
+  title     = {Don't Kick Over the Beehive: Attacks and Security Analysis on {Zigbee}},
+  booktitle = {Proceedings of the 2022 ACM SIGSAC Conference on Computer and Communications Security (CCS)},
+  year      = {2022},
+  pages     = {2857--2870},
+  doi       = {10.1145/3548606.3560703}
+}
+
+@inproceedings{ma2023no,
+  author    = {Xiaoyue Ma and Qiang Zeng and Haotian Chi and Lannan Luo},
+  title     = {No More Companion Apps Hacking but One Dongle: Hub-Based Blackbox Fuzzing of {IoT} Firmware},
+  booktitle = {Proceedings of the 21st Annual International Conference on Mobile Systems, Applications, and Services (MobiSys)},
+  year      = {2023},
+  pages     = {205--218},
+  doi       = {10.1145/3581791.3596857}
+}
+
+@inproceedings{fiterau2020analysis,
+  author    = {Paul Fiterau-Brostean and Bengt Jonsson and Robert Merget and Joeri de Ruiter and Konstantinos Sagonas and Juraj Somorovsky},
+  title     = {Analysis of {DTLS} Implementations Using Protocol State Fuzzing},
+  booktitle = {29th USENIX Security Symposium (USENIX Security 20)},
+  year      = {2020},
+  pages     = {2523--2540},
+  url       = {https://www.usenix.org/conference/usenixsecurity20/presentation/fiterau-brostean}
+}
+
+@inproceedings{fiterau2023automata,
+  author = {Paul Fiter{\u{a}}u-Bro{\c{s}}tean and Bengt Jonsson and Konstantinos Sagonas and Fredrik T{\aa}quist},
+  title = {Automata-Based Automated Detection of State Machine Bugs in Protocol Implementations},
+  booktitle = {Network and Distributed System Security Symposium (NDSS)},
+  year = {2023}
+}
+
+@inproceedings{learnlib,
+  author = {Maik Merten and Falk Howar and Bernhard Steffen},
+  title = {Automata Learning with the {LearnLib}},
+  booktitle = {Tools and Algorithms for the Construction and Analysis of Systems (TACAS)},
+  year = {2011}
+}
+
+@inproceedings{tlsattacker,
+  author = {Juraj Somorovsky},
+  title = {{TLS-Attacker}: A Penetration Testing Tool for {TLS} Libraries},
+  booktitle = {32nd Annual Computer Security Applications Conference (ACSAC)},
+  year = {2016}
+}
+
+@techreport{zwavespec2024b,
+  author = {{Z-Wave Alliance}},
+  title = {{Z-Wave Specifications, Release 2024B}},
+  institution = {Z-Wave Alliance},
+  year = {2024},
+  month = jul
+}
+
+@techreport{itu9959,
+  author = {{International Telecommunication Union}},
+  title = {Short range narrow-band digital radiocommunication transceivers: {PHY}, {MAC}, {SAR} and {LLC} layer specifications},
+  institution = {ITU-T},
+  number = {G.9959},
+  year = {2015},
+  month = jan,
+  url = {https://www.itu.int/rec/T-REC-G.9959-201501-I/en}
+}
+
+% Entries imported from the original ZVDetector bibliography.
+
+@Misc{zigbeemarket,
+        year=2024,
+	note = {\url{https://www.mordorintelligence.com/industry-reports/zigbee-market}},
+	title = {Zigbee Market Size \& Share Analysis- Growth Trends \& Forecasts(2024 - 2029)}
+}
+
+@Misc{timac,
+        year=2024,
+	note = {\url{https://www.ti.com/tool/TIMAC}},
+	title = {Zigbee Traffic Dump Tool: TiWsPc)}
+}
+
+@Misc{cve1,
+        year=2020,
+	note = {\url{https://github.com/chengcheng227/CVE-POC}},
+	title = {CVE-2019-15914}
+}
+
+@Misc{c2,
+        year=2023,
+	note = {\url{https://github.com/iot-sec23/IoT-CVE/blob/main/Centralite%20Pearl%20Thermostat%20Vulnerability%20Report.pdf}},
+	title = {CVE-2023-24678}
+}
+
+@Misc{cve3,
+        year=2022,
+	note = {\url{https://github.com/iot-sec23/IoT-CVE/blob/main/Sengled%20Smart%20Bulb%20Vulnerability%20Report.pdf}},
+	title = {CVE-2022-47100}
+}
+
+@Misc{zigbeespecification,
+        year=2024,
+	note = {\url{https://csa-iot.org/wp-content/uploads/2023/04/05-3474-23-csg-zigbee-specification-compressed.pdf}},
+	title = {ZigBee Specification.}
+}
+
+@Misc{zcluserguide,
+        year=2024,
+	note = {\url{https://www.nxp.com/docs/en/user-guide/JN-UG-3115.pdf}},
+	title = {Zibgee Cluster Library User Guide.}
+}
+
+@Misc{zhatoolkit,
+        year=2024,
+	note = {\url{https://github.com/mdeweerd/zha-toolkit}},
+	title = {Home Assistant ZHA Library.}
+}
+
+@Misc{zigbeelibrary,
+        year=2024,
+	note = {\url{https://github.com/zigpy/zigpy/tree/dev}},
+	title = {ZigBee Zigpy Library Implementation.}
+}
+
+@Misc{zha,
+        year=2024,
+	note = {\url{https://github.com/home-assistant/core/tree/dev/homeassistant/components/zha}},
+	title = {Home Assistant ZHA Library.}
+}
+
+@Misc{MinerU,
+        year=2024,
+	note = {\url{https://github.com/opendatalab/MinerU}},
+	title = {MinerU: A tool that converts PDFs into json formats.}
+}
+
+@article{zillner2015zigbee,
+  title={ZigBee exploited: The good, the bad and the ugly},
+  author={Zillner, Tobias and Strobl, Sebastian},
+  journal={Black Hat--2015. Available online: https://www. blackhat. com/docs/us-15/materials/us-15-Zillner-ZigBee-Exploited-The-Good-The-Bad-And-The-Ugly. pdf (accessed on 21 March 2018)},
+  year={2015}
+}
+
+@inproceedings{dini2010considerations,
+  title={Considerations on security in zigbee networks},
+  author={Dini, Gianluca and Tiloca, Marco},
+  booktitle={2010 IEEE International Conference on Sensor Networks, ubiquitous, and trustworthy computing},
+  pages={58--65},
+  year={2010},
+  organization={IEEE}
+}
+
+@inproceedings{morgner2017insecure,
+  title={Insecure to the touch: Attacking ZigBee 3.0 via touchlink commissioning},
+  author={Morgner, Philipp and Mattejat, Stephan and Benenson, Zinaida and M{\"u}ller, Christian and Armknecht, Frederik},
+  booktitle={Proceedings of the 10th ACM conference on security and privacy in wireless and mobile networks},
+  pages={230--240},
+  year={2017}
+}
+
+@inproceedings{de2015protocol,
+  title={Protocol state fuzzing of $\{$TLS$\}$ implementations},
+  author={De Ruiter, Joeri and Poll, Erik},
+  booktitle={24th USENIX Security Symposium (USENIX Security 15)},
+  pages={193--206},
+  year={2015}
+}
+
+@inproceedings{daniel2018inferring,
+  title={Inferring OpenVPN state machines using protocol state fuzzing},
+  author={Daniel, Lesly-Ann and Poll, Erik and de Ruiter, Joeri},
+  booktitle={2018 IEEE European Symposium on Security and Privacy Workshops (EuroS\&PW)},
+  pages={11--19},
+  year={2018},
+  organization={IEEE}
+}
+
+@inproceedings{chen2019exploring,
+  title={Exploring effective fuzzing strategies to analyze communication protocols},
+  author={Chen, Yurong and Lan, Tian and Venkataramani, Guru},
+  booktitle={Proceedings of the 3rd ACM Workshop on Forming an Ecosystem Around Software Transformation},
+  pages={17--23},
+  year={2019}
+}
+
+@article{natella2022stateafl,
+  title={Stateafl: Greybox fuzzing for stateful network servers},
+  author={Natella, Roberto},
+  journal={Empirical Software Engineering},
+  volume={27},
+  number={7},
+  pages={191},
+  year={2022},
+  publisher={Springer}
+}
+
+@inproceedings{gascon2015pulsar,
+  title={Pulsar: Stateful black-box fuzzing of proprietary network protocols},
+  author={Gascon, Hugo and Wressnegger, Christian and Yamaguchi, Fabian and Arp, Daniel and Rieck, Konrad},
+  booktitle={Security and Privacy in Communication Networks: 11th EAI International Conference, SecureComm 2015, Dallas, TX, USA, October 26-29, 2015, Proceedings 11},
+  pages={330--347},
+  year={2015},
+  organization={Springer}
+}
+
+@article{song2019spfuzz,
+  title={SPFuzz: a hierarchical scheduling framework for stateful network protocol fuzzing},
+  author={Song, Congxi and Yu, Bo and Zhou, Xu and Yang, Qiang},
+  journal={IEEE Access},
+  volume={7},
+  pages={18490--18499},
+  year={2019},
+  publisher={IEEE}
+}
+
+@inproceedings{wang2024llmif,
+  title={Llmif: Augmented large language model for fuzzing iot devices},
+  author={Wang, Jincheng and Yu, Le and Luo, Xiapu},
+  booktitle={2024 IEEE Symposium on Security and Privacy (SP)},
+  pages={196--196},
+  year={2024},
+  organization={IEEE Computer Society}
+}
+
+@inproceedings{shafqat2022zleaks,
+  title={Zleaks: Passive inference attacks on Zigbee based smart homes},
+  author={Shafqat, Narmeen and Dubois, Daniel J and Choffnes, David and Schulman, Aaron and Bharadia, Dinesh and Ranganathan, Aanjhan},
+  booktitle={International Conference on Applied Cryptography and Network Security},
+  pages={105--125},
+  year={2022},
+  organization={Springer}
+}
+
+@inproceedings{talakala2021detecting,
+  title={Detecting spoofing attacks in Zigbee using device fingerprinting},
+  author={Talakala, Grace Hanusha and Bapat, Jyotsna},
+  booktitle={2021 IEEE 18th Annual Consumer Communications \& Networking Conference (CCNC)},
+  pages={1--2},
+  year={2021},
+  organization={IEEE}
+}
+
+@inproceedings{meng2024large,
+  title={Large language model guided protocol fuzzing},
+  author={Meng, Ruijie and Mirchev, Martin and B{\"o}hme, Marcel and Roychoudhury, Abhik},
+  booktitle={Proceedings of the 31st Annual Network and Distributed System Security Symposium (NDSS)},
+  year={2024}
+}
+
+@inproceedings{ren2021z,
+  title={Z-Fuzzer: device-agnostic fuzzing of Zigbee protocol implementation},
+  author={Ren, Mengfei and Ren, Xiaolei and Feng, Huadong and Ming, Jiang and Lei, Yu},
+  booktitle={Proceedings of the 14th ACM Conference on Security and Privacy in Wireless and Mobile Networks},
+  pages={347--358},
+  year={2021}
+}
+
+@inproceedings{ronen2017iot,
+  title={IoT goes nuclear: Creating a ZigBee chain reaction},
+  author={Ronen, Eyal and Shamir, Adi and Weingarten, Achi-Or and O’Flynn, Colin},
+  booktitle={2017 IEEE Symposium on Security and Privacy (SP)},
+  pages={195--212},
+  year={2017},
+  organization={IEEE}
+}
+
+@inproceedings{ahmed2020identifying,
+  title={Identifying mirai-exploitable vulnerabilities in iot firmware through static analysis},
+  author={Ahmed, Zafeer and Nadir, Ibrahim and Mahmood, Haroon and Akbar, Ali Hammad and Shah, Ghalib Asadullah},
+  booktitle={2020 International Conference on Cyber Warfare and Security (ICCWS)},
+  pages={1--5},
+  year={2020},
+  organization={IEEE}
+}
+
+@inproceedings{chen2016towards,
+  title={Towards automated dynamic analysis for linux-based embedded firmware.},
+  author={Chen, Daming D and Woo, Maverick and Brumley, David and Egele, Manuel},
+  booktitle={NDSS},
+  volume={1},
+  pages={1--1},
+  year={2016}
+}
+
+@inproceedings{kim2020firmae,
+  title={Firmae: Towards large-scale emulation of iot firmware for dynamic analysis},
+  author={Kim, Mingeun and Kim, Dongkwan and Kim, Eunsoo and Kim, Suryeon and Jang, Yeongjin and Kim, Yongdae},
+  booktitle={Proceedings of the 36th Annual Computer Security Applications Conference},
+  pages={733--745},
+  year={2020}
+}
+
+@inproceedings{zheng2019firm,
+  title={$\{$FIRM-AFL$\}$:$\{$High-Throughput$\}$ greybox fuzzing of $\{$IoT$\}$ firmware via augmented process emulation},
+  author={Zheng, Yaowen and Davanian, Ali and Yin, Heng and Song, Chengyu and Zhu, Hongsong and Sun, Limin},
+  booktitle={28th USENIX Security Symposium (USENIX Security 19)},
+  pages={1099--1114},
+  year={2019}
+}
+
+@inproceedings{zhou2022your,
+  title={What your firmware tells you is not how you should emulate it: A specification-guided approach for firmware emulation},
+  author={Zhou, Wei and Zhang, Lan and Guan, Le and Liu, Peng and Zhang, Yuqing},
+  booktitle={Proceedings of the 2022 ACM SIGSAC Conference on Computer and Communications Security},
+  pages={3269--3283},
+  year={2022}
+}
+
+@inproceedings{nadir2019auditing,
+  title={An auditing framework for vulnerability analysis of IoT system},
+  author={Nadir, Ibrahim and Ahmad, Zafeer and Mahmood, Haroon and Shah, Ghalib Asadullah and Shahzad, Farrukh and Umair, Muhammad and Khan, Hassam and Gulzar, Usman},
+  booktitle={2019 IEEE European Symposium on Security and Privacy Workshops (EuroS\&PW)},
+  pages={39--47},
+  year={2019},
+  organization={IEEE}
+}
+
+@inproceedings{sachidananda2020over,
+  title={OVER: Overhauling vulnerability detection for IoT through an adaptable and automated static analysis framework},
+  author={Sachidananda, Vinay and Bhairav, Suhas and Elovici, Yuval},
+  booktitle={Proceedings of the 35th Annual ACM Symposium on Applied Computing},
+  pages={729--738},
+  year={2020}
+}
+
+@inproceedings{chen2018iotfuzzer,
+  title={IoTFuzzer: Discovering Memory Corruptions in IoT Through App-based Fuzzing.},
+  author={Chen, Jiongyi and Diao, Wenrui and Zhao, Qingchuan and Zuo, Chaoshun and Lin, Zhiqiang and Wang, XiaoFeng and Lau, Wing Cheong and Sun, Menghan and Yang, Ronghai and Zhang, Kehuan},
+  booktitle={NDSS},
+  year={2018}
+}
+
+@inproceedings{redini2021diane,
+  title={Diane: Identifying fuzzing triggers in apps to generate under-constrained inputs for iot devices},
+  author={Redini, Nilo and Continella, Andrea and Das, Dipanjan and De Pasquale, Giulio and Spahn, Noah and Machiry, Aravind and Bianchi, Antonio and Kruegel, Christopher and Vigna, Giovanni},
+  booktitle={2021 IEEE Symposium on Security and Privacy (SP)},
+  pages={484--500},
+  year={2021},
+  organization={IEEE}
+}
+
+@inproceedings{feng2021snipuzz,
+  title={Snipuzz: Black-box fuzzing of iot firmware via message snippet inference},
+  author={Feng, Xiaotao and Sun, Ruoxi and Zhu, Xiaogang and Xue, Minhui and Wen, Sheng and Liu, Dongxi and Nepal, Surya and Xiang, Yang},
+  booktitle={Proceedings of the 2021 ACM SIGSAC conference on computer and communications security},
+  pages={337--350},
+  year={2021}
+}
+
+@inproceedings{davidson2013fie,
+  title={$\{$FIE$\}$ on firmware: Finding vulnerabilities in embedded systems using symbolic execution},
+  author={Davidson, Drew and Moench, Benjamin and Ristenpart, Thomas and Jha, Somesh},
+  booktitle={22nd USENIX Security Symposium (USENIX Security 13)},
+  pages={463--478},
+  year={2013}
+}
+
+@inproceedings{hernandez2017firmusb,
+  title={Firmusb: Vetting usb device firmware using domain informed symbolic execution},
+  author={Hernandez, Grant and Fowze, Farhaan and Tian, Dave and Yavuz, Tuba and Butler, Kevin RB},
+  booktitle={Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications Security},
+  pages={2245--2262},
+  year={2017}
+}
+
+@inproceedings{cheng2018dtaint,
+  title={DTaint: detecting the taint-style vulnerability in embedded device firmware},
+  author={Cheng, Kai and Li, Qiang and Wang, Lei and Chen, Qian and Zheng, Yaowen and Sun, Limin and Liang, Zhenkai},
+  booktitle={2018 48th Annual IEEE/IFIP International Conference on Dependable Systems and Networks (DSN)},
+  pages={430--441},
+  year={2018},
+  organization={IEEE}
+}
+
+@inproceedings{liu2024riotfuzzer,
+  title={Riotfuzzer: Companion app assisted remote fuzzing for detecting vulnerabilities in iot devices},
+  author={Liu, Kaizheng and Yang, Ming and Ling, Zhen and Zhang, Yue and Lei, Chongqing and Luo, Junzhou and Fu, Xinwen},
+  booktitle={Proceedings of the 2024 on ACM SIGSAC Conference on Computer and Communications Security},
+  pages={2341--2354},
+  year={2024}
+}
+
+@inproceedings{fiteruau2022dtls,
+  title={Dtls-fuzzer: A dtls protocol state fuzzer},
+  author={Fiter{\u{a}}u-Bro{\c{s}}tean, Paul and Jonsson, Bengt and Sagonas, Konstantinos and T{\aa}quist, Fredrik},
+  booktitle={2022 IEEE Conference on Software Testing, Verification and Validation (ICST)},
+  pages={456--458},
+  year={2022},
+  organization={IEEE}
+}
+
+% Original website entry used the key learnlib; the paper entry keeps that key.
+@Misc{learnlib_website,
+        year=2024,
+	note = {\url{https://learnlib.de/}},
+	title = {LearnLib: An open framework for automata learning.}
+}
+
+% Original website entry used the key tlsattacker; the paper entry keeps that key.
+@Misc{tlsattacker_github,
+        year=2024,
+	note = {\url{https://github.com/tls-attacker/TLS-Attacker}},
+	title = {TLS-Attacker: A Java-based framework for analyzing TLS libraries}
+}
+
+@Misc{state1,
+        year=2023,
+	note = {\url{https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-8231}},
+	title = {CVE-2023-24678: Centralite Pearl Thermostat denial-of-service vulnerability.}
+}
+
+@Misc{dos2,
+        year=2023,
+	note = {\url{https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-8231}},
+	title = {CVE-2023-29779: Sengled Dimmer Switch V0.0.9 denial-of-service vulnerability.}
+}
+
+@Misc{dos3,
+        year=2023,
+	note = {\url{https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-8231}},
+	title = {CVE-2023-29780: Third Reality Smart Blind 1.00.54 denial-of-service vulnerability.}
+}
+
+@Misc{state2,
+        year=2023,
+	note = {\url{https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-47100}},
+	title = {CVE-2022-47100: Sengled Smart bulb factory reset vulnerability.}
+}
+
+@Misc{db1,
+        year=2024,
+	note = {\url{https://nvd.nist.gov/vuln/search}},
+	title = {NVD vulnerability database.}
+}
+
+@Misc{db2,
+        year=2024,
+	note = {\url{https://cve.mitre.org/cve/search_cve_list.html}},
+	title = {MITRE CVE vulnerability database.}
+}
+
+@Misc{db3,
+        year=2024,
+	note = {\url{https://www.cnnvd.org.cn/home/loophole}},
+	title = {CNNVD vulnerability database.}
+}
+
+@Misc{tshark,
+        year=2024,
+	note = {\url{https://tshark.dev/}},
+	title = {Traffic capture and analysis tool: tshark.}
+}
+
+@Misc{radio,
+        year=2024,
+	note = {\url{https://www.home-assistant.io/integrations/zha/}},
+	title = {Hardware and coordinator list support for different Zigbee radio types.}
+}
+
+@Misc{mqtt1,
+        year=2024,
+	note = {\url{https://github.com/eclipse-paho/paho.mqtt.python/tree/master/src/paho/mqtt}},
+	title = {Eclipse Paho MQTT Python Client Library.}
+}
+
+@Misc{mqtt2,
+        year=2024,
+	note = {\url{https://github.com/eclipse-mosquitto/mosquitto/tree/master}},
+	title = {Eclipse Mosquitto Library.}
+}
+
+@Misc{bluetooth,
+        year=2024,
+	note = {\url{https://github.com/NordicSemiconductor/Android-BLE-Library}},
+	title = {Android BLE Library.}
+}
+
+@Misc{mac,
+        year=2024,
+	note = {\url{https://user.engineering.uiowa.edu/~mcover/lab4/802.15.4-2003.pdf}},
+	title = {IEEE 802.15.4-2003, IEEE Standard for Information technology.}
+}
+
+% Industry estimates supporting the Introduction opening; publication dates and figures checked against the source pages.
+
+@misc{transformaiot2026,
+  author = {{Transforma Insights}},
+  title  = {Global {IoT} connections will grow from 21 billion in 2025 to 48 billion in 2035},
+  year   = {2026},
+  month  = {Apr.},
+  url    = {https://transformainsights.com/news/global-iot-connections-2025-2035},
+  note   = {Published Apr. 17, 2026. Accessed: Oct. 31, 2026.}
+}
+
+@misc{iotanalyticsenterprise2026,
+  author       = {Knud Lasse Lueth},
+  title        = {State of enterprise {IoT} 2026: The shift from {IoT} to autonomous connected operations},
+  year         = {2026},
+  month        = {Feb.},
+  howpublished = {IoT Analytics},
+  url          = {https://iot-analytics.com/state-of-enterprise-iot-from-iot-autonomous-connected-operations/},
+  note         = {Published Feb. 4, 2026. Accessed: Oct. 31, 2026.}
+}
