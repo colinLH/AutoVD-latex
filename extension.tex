@@ -89,7 +89,7 @@ To sustain this exploration, \system{} binds each mutation sequence to its requi
 
 \begin{enumerate}[$\bullet$]
     \setlength{\itemsep}{3pt}
-    \item We introduce a novel system based on LLM agents, called \system{}, which can identify IoT device vulnerabilities triggered by the combination of protocol states and device states, and autonomously explore the combined state space efficiently through tool-supported planning and execution feedback. Our combined state fuzzing methodology can be applied to all IoT protocols.\footnote[1]{\textbf{Open source code at:} \textit{\url{https://github.com/colinLH/IoT-VDA/tree/main}}}
+    \item We introduce a novel system based on LLM agents, called \system{}, which can identify IoT device vulnerabilities triggered by the combination of protocol states and device states, and autonomously explore the combined state space efficiently through tool-supported planning and execution feedback. Our combined state fuzzing methodology can be applied to all IoT protocols.
 
     \item We propose a method for exploring unknown protocol states efficiently and sufficiently. Various message relationships are mined through the combination of static and dynamic analysis and leveraged with a heuristic relationship strategy to identify messages that trigger unknown protocol states in the state graph.
     
@@ -97,36 +97,31 @@ To sustain this exploration, \system{} binds each mutation sequence to its requi
 
     \item We design a state-conditioned agent fuzzing mechanism for continuous autonomous exploration of the combined state space. It binds mutation sequences to checked device preconditions and preserves their executable setup and applicability conditions in memory. Bounded progress feedback and replay-supported credit for delayed failures guide two-level scheduling, enabling agents to reuse applicable experience and adapt subsequent tests to observed device behavior.
     
-    \item We evaluate \system{} on 14 Zigbee and Z-Wave devices from eight vendors. Our experiments uncover 37 vulnerabilities, including 31 zero-days, with 7 CVE IDs assigned. Furthermore, agent-generated test cases can expose device vulnerabilities faster and uncover more state-dependent corner cases.\footnote{We release all source code at \url{https://github.com/colinLH/IoT-VDA/tree/main}.} 
+    \item We evaluate \system{} on 14 Zigbee and Z-Wave devices from eight vendors. Our experiments uncover 37 vulnerabilities, including 31 zero-days, with 7 CVE IDs assigned. Furthermore, agent-generated test cases can expose device vulnerabilities faster and uncover more state-dependent corner cases.\footnote[1]{\textbf{Open source code at:} \textit{\url{https://github.com/colinLH/IoT-VDA/tree/main}}}
     
 \end{enumerate}
 
 
 \section{Background} \label{Background}
 %-------------------------------------------------------------------------------
-In this section, we first introduce the Zigbee protocol stack and Zigbee devices. Then we describe the motivation, threat model and scope, and the challenges associated with each motivation. Here, we also briefly outline the solutions for each challenge, which align with the components of the system framework described in \textbf{\S\ref{sa}}.
+% In this section, we first introduce the Zigbee protocol stack and Zigbee devices. Then we describe the motivation, threat model and scope, and the challenges associated with each motivation. Here, we also briefly outline the solutions for each challenge, which align with the components of the system framework described in \textbf{\S\ref{sa}}.
+This section introduces Zigbee and Z-Wave, followed by the motivation, threat model, and scope of our work. We then discuss the challenges and outline the solutions developed in the subsequent sections.
 
 \subsection{Zigbee Stack \& Zigbee Device}
 
-% \begin{figure}[h]
-% 	\centering
-% 	\setlength{\abovecaptionskip}{2pt}
-% 	\setlength{\belowcaptionskip}{0pt}
-% 	\begin{minipage}[t]{1\linewidth}
-% 		\centering
-% 		\vspace{0pt}
-% 		\includegraphics[width=1\textwidth]{Figure/stack.pdf}
-% 	\end{minipage}
-% 	\caption{Zigbee protocol stack, Zigbee network and components of Zigbee devices.}
-% 	\label{fig:stack}
-%         \vspace{-0.1cm}
-% \end{figure}
+Zigbee and Z-Wave are low-power wireless protocols used in home and building automation to connect devices such as lights, switches, sensors, and locks.
 
-Zigbee is a low-power, lightweight IoT communication protocol that is widely used in smart homes and medical information collection. The Zigbee protocol stack has five layers from top to bottom, namely Zigbee Cluster Library (ZCL) layer, Application Support Sublayer (APS), Network (NWK) layer, Media Access Control (MAC) layer and Physical layer. The MAC layer and NWK layer are used to identify the Zigbee network and device routing, while the APS layer and ZCL layer contain messages for controlling Zigbee devices. Zigbee Device Profile (ZDP) belongs to APS layer and is used for device discovery and management. 
+\textbf{Zigbee.} Zigbee builds on IEEE 802.15.4 and supports mesh networking. A coordinator forms the network, routers forward packets, and end devices communicate through a parent node. Above the physical and MAC layers, the network layer handles routing, while the Application Support Sublayer (APS) supports application message exchange~\cite{zigbeespecification}. At the application layer, an \textbf{endpoint} represents a logical device function. The Zigbee Cluster Library (ZCL) organizes related \textbf{attributes} and \textbf{commands} into \textbf{clusters}~\cite{zigbeezclr6}. Server (in-) clusters maintain the associated attributes, while client (out-) clusters issue commands to interact with them. For example, the Level Control cluster exposes a \emph{CurrentLevel} attribute, which a \emph{MoveToLevel} command can change.
 
-Coordinators (also called controllers) are considered to be the central nodes responsible for the addresses distribution when devices join, as well as for data packets routing. Each coordinator creates a localized network identified by a 16-bit Personal Area Network Identifier (PAN ID) and a 64-bit Extend PANID (EPID). Each Zigbee device (also called end device) has a 16-bit identified MAC address and a 16-bit network address assigned by the coordinator.
+\textbf{Z-Wave.} Z-Wave operates in regional sub-GHz bands and connects controllers with sensors and actuators. A primary controller manages network inclusion, during which a joining device receives a Node ID and the network's Home ID~\cite{zwavespec2024b}. At the application layer, \textbf{Command Classes} group commands by function, such as switching, sensing, and configuration. Many Command Classes provide \emph{Set}, \emph{Get}, and \emph{Report} commands to change a value, request it, and return it, respectively~\cite{zwaveccoverview}. For example, the Switch Multilevel Command Class controls and reports a dimmer's level.
 
-Each Zigbee device has multiple endpoints. An endpoint is a logical entity that provides a service and identified by an 8-bit integer. ZCL \textbf{clusters} are contained within each endpoint and implement some specific functions, where each cluster is represented by a 16-bit identifier called cluster ID (CID). Each cluster provides a set of related \textbf{attributes} and \textbf{commands}, e.g. cluster \emph{'Level Control'} (CID: 0x0008) has an attribute called \emph{'current\_level'}, which indicates the current output level of the device. A command called \textbf{\emph{MoveToLevel}} can set the value of this attribute. Each command can also be called as a \textbf{message} and is identified by a command ID (cid). ZCL clusters can be divided into \textbf{in-clusters} and \textbf{out-clusters}, which define the commands that the endpoint can receive and send respectively.
+In both protocols, commands can read or change device state, and different commands may act on the same state variable. We use \textit{message} to refer to a protocol command and \textit{device state} to include both exposed attributes or parameters and internal values that cannot be queried directly. These common features allow us to study message relationships and device conditions together across the two protocols.
+
+% Zigbee is a low-power, lightweight IoT communication protocol that is widely used in smart homes and medical information collection. The Zigbee protocol stack has five layers from top to bottom, namely Zigbee Cluster Library (ZCL) layer, Application Support Sublayer (APS), Network (NWK) layer, Media Access Control (MAC) layer and Physical layer. The MAC layer and NWK layer are used to identify the Zigbee network and device routing, while the APS layer and ZCL layer contain messages for controlling Zigbee devices. Zigbee Device Profile (ZDP) belongs to APS layer and is used for device discovery and management. 
+
+% Coordinators (also called controllers) are considered to be the central nodes responsible for the addresses distribution when devices join, as well as for data packets routing. Each coordinator creates a localized network identified by a 16-bit Personal Area Network Identifier (PAN ID) and a 64-bit Extend PANID (EPID). Each Zigbee device (also called end device) has a 16-bit identified MAC address and a 16-bit network address assigned by the coordinator.
+
+% Each Zigbee device has multiple endpoints. An endpoint is a logical entity that provides a service and identified by an 8-bit integer. ZCL \textbf{clusters} are contained within each endpoint and implement some specific functions, where each cluster is represented by a 16-bit identifier called cluster ID (CID). Each cluster provides a set of related \textbf{attributes} and \textbf{commands}, e.g. cluster \emph{'Level Control'} (CID: 0x0008) has an attribute called \emph{'current\_level'}, which indicates the current output level of the device. A command called \textbf{\emph{MoveToLevel}} can set the value of this attribute. Each command can also be called as a \textbf{message} and is identified by a command ID (cid). ZCL clusters can be divided into \textbf{in-clusters} and \textbf{out-clusters}, which define the commands that the endpoint can receive and send respectively.
 
 % \begin{table}[t]
 %     \setlength{\abovecaptionskip}{0pt}
